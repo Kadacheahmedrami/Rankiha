@@ -10,10 +10,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Bell, LogOut, Menu, Settings, Star, TrendingUp, User } from 'lucide-react'
+import { Bell, LogOut, Menu, Settings, Star, TrendingUp, User } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { signOut } from "next-auth/react"  // Import signOut from NextAuth
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -22,6 +23,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Leaderboard", href: "/leaderboard", icon: <TrendingUp className="h-5 w-5" /> },
     { name: "Profile", href: "/profile", icon: <User className="h-5 w-5" /> },
   ]
+
+  // Function to sign the user out and redirect to the home page.
+  const handleSignOut = () => {
+    signOut({ callbackUrl: "/" })
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -60,10 +66,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </ul>
                   </nav>
                   <div className="border-t border-border/40 p-4">
+                    {/* Mobile sign-out button */}
                     <Button
                       variant="ghost"
                       className="w-full justify-start gap-3"
-                      onClick={() => setIsMobileMenuOpen(false)}
+                      onClick={() => {
+                        setIsMobileMenuOpen(false)
+                        handleSignOut()  // Call sign-out on click
+                      }}
                     >
                       <LogOut className="h-5 w-5" />
                       <span>Sign Out</span>
@@ -120,7 +130,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                {/* Dropdown sign-out item */}
+                <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Sign out</span>
                 </DropdownMenuItem>

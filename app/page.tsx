@@ -2,8 +2,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import Link from "next/link"
 import { ArrowRight, Star } from "lucide-react"
+import { getServerAuthSession } from "@/app/lib/auth"
 
-export default function Home() {
+
+export default async function  Home() {
+  const session = await getServerAuthSession()
+  console.log(session)
+
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-border/40 backdrop-blur-sm bg-background/80 fixed w-full z-10">
