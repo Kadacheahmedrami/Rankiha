@@ -7,7 +7,7 @@ import { getServerAuthSession } from "@/app/lib/auth"
 
 export default async function  Home() {
   const session = await getServerAuthSession()
-  console.log(session)
+
 
 
   return (
