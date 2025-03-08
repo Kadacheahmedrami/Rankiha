@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 
 const prisma = new PrismaClient();
+
+
+
 
 // PATCH - Update an existing rating
 export async function PATCH(

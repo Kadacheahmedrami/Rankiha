@@ -1,119 +1,83 @@
+// File: app/api/rating/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/lib/auth';
+import Pusher from 'pusher';
+import { getServerAuthSession } from '@/app/lib/auth';
 
 const prisma = new PrismaClient();
 
-// GET - Fetch ratings (either given by the user or received by the user)
-export async function GET(request: NextRequest) {
+// Initialize Pusher (using your env variables)
+const pusher = new Pusher({
+  appId: process.env.PUSHER_APP_ID || '',
+  key: process.env.PUSHER_KEY || '',
+  secret: process.env.PUSHER_SECRET || '',
+  cluster: process.env.PUSHER_CLUSTER || 'eu',
+  useTLS: true
+});
+
+export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Ensure the user is authenticated
+    const session = await getServerAuthSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type'); // 'given' or 'received'
-    const userId = searchParams.get('userId');
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    let ratings;
-    if (type === 'given') {
-      // Ratings given by the current user
-      ratings = await prisma.rating.findMany({
-        where: { userId: user.id },
-        include: { ratedUser: true },
-      });
-    } else if (type === 'received') {
-      // Ratings received by the current user
-      ratings = await prisma.rating.findMany({
-        where: { ratedUserId: user.id },
-        include: { user: true },
-      });
-    } else if (userId) {
-      // Ratings for a specific user (public profile view)
-      ratings = await prisma.rating.findMany({
-        where: { ratedUserId: userId },
-        include: { user: true },
-      });
-    } else {
-      return NextResponse.json({ error: 'Invalid request parameters' }, { status: 400 });
-    }
-
-    return NextResponse.json({ ratings });
-  } catch (error) {
-    console.error('Error fetching ratings:', error);
-    return NextResponse.json({ error: 'Failed to fetch ratings' }, { status: 500 });
-  }
-}
-
-// POST - Create a new rating
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { ratedUserId, value } = await request.json();
-
-    // Validate input
+    // Parse the request body
+    const body = await req.json();
+    const { ratedUserId, value } = body;
+    
+    // Validate the rating data
     if (!ratedUserId || typeof value !== 'number' || value < 1 || value > 5) {
-      return NextResponse.json({ error: 'Invalid input data' }, { status: 400 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ error: "Invalid rating data" }, { status: 400 });
     }
 
     // Prevent users from rating themselves
-    if (user.id === ratedUserId) {
-      return NextResponse.json({ error: 'Cannot rate yourself' }, { status: 400 });
+    if (session.user.id === ratedUserId) {
+      return NextResponse.json({ error: "You cannot rate yourself" }, { status: 400 });
     }
-
-    // Check if the user being rated exists
-    const ratedUser = await prisma.user.findUnique({
-      where: { id: ratedUserId },
-    });
-
-    if (!ratedUser) {
-      return NextResponse.json({ error: 'User to rate not found' }, { status: 404 });
-    }
-
-    // Create or update the rating
+    
+    // Upsert (create or update) the rating
     const rating = await prisma.rating.upsert({
       where: {
         userId_ratedUserId: {
-          userId: user.id,
+          userId: session.user.id,
           ratedUserId,
-        },
+        }
       },
       update: {
         value,
-        updatedAt: new Date(),
       },
       create: {
-        userId: user.id,
+        userId: session.user.id,
         ratedUserId,
         value,
-      },
+      }
     });
-
-    return NextResponse.json({ rating }, { status: 201 });
+    
+    // Calculate new average rating for the rated user
+    const userRatings = await prisma.rating.findMany({
+      where: { ratedUserId }
+    });
+    const totalRating = userRatings.reduce((sum, r) => sum + r.value, 0);
+    const averageRating = totalRating / userRatings.length;
+    
+    // Trigger a Pusher event to update the leaderboard in real time
+    await pusher.trigger('leaderboard', 'rating-updated', {
+      userId: ratedUserId,
+      averageRating,
+      ratingsCount: userRatings.length,
+    });
+    
+    return NextResponse.json({
+      success: true,
+      rating,
+      averageRating,
+      ratingsCount: userRatings.length
+    });
   } catch (error) {
-    console.error('Error creating rating:', error);
-    return NextResponse.json({ error: 'Failed to create rating' }, { status: 500 });
+    console.error("Error creating/updating rating:", error);
+    return NextResponse.json({ error: "Failed to save rating" }, { status: 500 });
   }
 }

@@ -1,5 +1,3 @@
-// File: lib/auth.ts
-
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
 import { NextAuthOptions, getServerSession } from "next-auth";
@@ -66,6 +64,7 @@ export const authOptions: NextAuthOptions = {
           if (account?.provider === "google" && account.providerAccountId) {
             console.log("Updating user with Google ID:", account.providerAccountId);
             
+            // Update the user record
             await prisma.user.update({
               where: { id: existingUser.id },
               data: { 
@@ -77,23 +76,34 @@ export const authOptions: NextAuthOptions = {
               },
             });
             
-            // Explicitly create the OAuth account link
-            await prisma.account.create({
-              data: {
-                userId: existingUser.id,
-                type: account.type,
+            // Check if the account link already exists before creating it
+            const existingAccount = await prisma.account.findFirst({
+              where: {
                 provider: account.provider,
                 providerAccountId: account.providerAccountId,
-                refresh_token: account.refresh_token,
-                access_token: account.access_token,
-                expires_at: account.expires_at,
-                token_type: account.token_type,
-                scope: account.scope,
-                id_token: account.id_token,
               },
             });
             
-            console.log("Account linked successfully");
+            // Only create the account link if it doesn't exist
+            if (!existingAccount) {
+              await prisma.account.create({
+                data: {
+                  userId: existingUser.id,
+                  type: account.type,
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                  refresh_token: account.refresh_token,
+                  access_token: account.access_token,
+                  expires_at: account.expires_at,
+                  token_type: account.token_type,
+                  scope: account.scope,
+                  id_token: account.id_token,
+                },
+              });
+              console.log("Account linked successfully");
+            } else {
+              console.log("Account link already exists, skipping creation");
+            }
           }
           return true;
         }
@@ -111,11 +121,6 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
       }
-      
-      // You can add additional claims to the token if needed
-      // if (account?.provider === "google") {
-      //   token.googleAccessToken = account.access_token;
-      // }
       
       return token;
     },

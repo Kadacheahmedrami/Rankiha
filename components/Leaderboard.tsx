@@ -1,65 +1,157 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {  TrendingUp, Search } from "lucide-react";
-import Link from "next/link";
+import { TrendingUp, Search } from "lucide-react";
+import Link from "next/link"; 
 import RatingStars from "@/components/rating-stars";
 import { useEffect, useState, useRef } from "react";
+import Pusher from "pusher-js";
+
+
+// Define a Profile interface to type the profile object
+interface Profile {
+  id: string;
+  name: string;
+  username: string;
+  rating: number;
+  ratings: number | null;
+  change: 'up' | 'down' | 'same';
+  image: string;
+  userRatingId?: string; // Optional property if the current user already rated this profile
+}
+
+// Enhanced TypeScript version of the rating submission function
+const handleRatingChange = async (profile: Profile, newRating: number): Promise<void> => {
+  try {
+    console.log("Submitting rating for profile:", profile);
+    let response: Response;
+
+    if (profile.userRatingId) {
+      // Update existing rating using PATCH on /api/rating/[id]
+      response = await fetch(`/api/rating/${profile.userRatingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: newRating }),
+      });
+    } else {
+      // Create a new rating using POST on /api/rating
+      response = await fetch("/api/rating", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ratedUserId: profile.id, value: newRating }),
+      });
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Error rating profile:", errorData.error || response.statusText);
+      return;
+    }
+
+    const data = await response.json();
+    console.log("Rating submitted successfully:", data);
+
+    // Refresh the leaderboard after the rating update
+    fetchLeaderboard(); // Ensure fetchLeaderboard is defined in your component's scope
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error submitting rating:", error.message);
+    } else {
+      console.error("An unexpected error occurred while submitting the rating.");
+    }
+  }
+};
+
 
 export default function Leaderboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [profiles, setProfiles] = useState<any[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Mock data for all profiles
-  const allProfiles = [
-    { id: 1, name: "Alex Johnson", username: "@alexj", rating: 4.8, ratings: 124, change: "up" },
-    { id: 2, name: "Samantha Lee", username: "@samlee", rating: 4.7, ratings: 98, change: "same" },
-    { id: 3, name: "Marcus Chen", username: "@mchen", rating: 4.6, ratings: 76, change: "up" },
-    { id: 4, name: "Jessica Wong", username: "@jwong", rating: 4.5, ratings: 112, change: "down" },
-    { id: 5, name: "David Miller", username: "@dmiller", rating: 4.5, ratings: 89, change: "up" },
-    { id: 6, name: "Emma Thompson", username: "@ethompson", rating: 4.4, ratings: 67, change: "up" },
-    { id: 7, name: "Michael Scott", username: "@mscott", rating: 4.3, ratings: 145, change: "down" },
-    { id: 8, name: "Sarah Johnson", username: "@sjohnson", rating: 4.3, ratings: 92, change: "same" },
-    { id: 9, name: "Robert Chen", username: "@rchen", rating: 4.2, ratings: 78, change: "up" },
-    { id: 10, name: "Lisa Park", username: "@lpark", rating: 4.1, ratings: 63, change: "down" },
-    { id: 11, name: "Thomas Wilson", username: "@twilson", rating: 4.0, ratings: 55, change: "up" },
-    { id: 12, name: "Amanda Garcia", username: "@agarcia", rating: 3.9, ratings: 48, change: "same" },
-    { id: 13, name: "Kevin Brown", username: "@kbrown", rating: 3.8, ratings: 42, change: "down" },
-    { id: 14, name: "Sophia Martinez", username: "@smartinez", rating: 3.7, ratings: 39, change: "up" },
-    { id: 15, name: "Daniel Taylor", username: "@dtaylor", rating: 3.6, ratings: 37, change: "down" },
-    { id: 16, name: "Olivia Anderson", username: "@oanderson", rating: 3.5, ratings: 34, change: "same" },
-    { id: 17, name: "James Wilson", username: "@jwilson", rating: 3.4, ratings: 31, change: "up" },
-    { id: 18, name: "Ava Thomas", username: "@athomas", rating: 3.3, ratings: 29, change: "down" },
-    { id: 19, name: "Benjamin Harris", username: "@bharris", rating: 3.2, ratings: 27, change: "up" },
-    { id: 20, name: "Mia Jackson", username: "@mjackson", rating: 3.1, ratings: 25, change: "same" },
-  ];
+  // Fetch leaderboard data (assumed to include a `userRatingId` field when applicable)
+  const fetchLeaderboard = async () => {
+    try {
+      const query = searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : "";
+      const res = await fetch(`/api/leaderboard${query}`);
+      const data = await res.json();
+      setProfiles(data);
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error);
+    }
+  };
 
-  // Filter profiles that start with the search term (case insensitive)
-  const filteredProfiles = allProfiles.filter((profile) => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return profile.name.toLowerCase().startsWith(term) || profile.username.toLowerCase().startsWith(term);
-  });
+  // Handle rating submission: update if rating exists, create new if not.
+  const handleRatingChange = async (profile: any, newRating: number) => {
+    try {
+      console.log(profile)
+      let res;
+      if (profile.userRatingId) {
+       
+        // Update existing rating using PATCH on /api/rating/[id]
+        res = await fetch(`/api/rating/${profile.userRatingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ value: newRating }),
+        });
+      } else {
+        // Create new rating using POST on /api/rating
+        res = await fetch("/api/rating", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ratedUserId: profile.id, value: newRating }),
+        });
+      }
+      const data = await res.json();
+      if (data.error) {
+        console.error("Error rating profile:", data.error);
+      } else {
+        console.log("Rating submitted successfully:", data);
+        // Refresh the leaderboard after the rating update
+        fetchLeaderboard();
+      }
+    } catch (error) {
+      console.error("Error submitting rating:", error);
+    }
+  };
 
-  // Animation for search results
-  const [showResults, setShowResults] = useState(true);
-
+  // Debounced fetch when searchTerm changes
   useEffect(() => {
-    setShowResults(false);
-    const timer = setTimeout(() => {
-      setShowResults(true);
-    }, 100);
-    return () => clearTimeout(timer);
+    const delayDebounceFn = setTimeout(() => {
+      fetchLeaderboard();
+    }, 300);
+    return () => clearTimeout(delayDebounceFn);
   }, [searchTerm]);
 
-  // Get top 3 profiles for special styling
-  const topProfiles = allProfiles.slice(0, 3);
-
+  // Initial fetch and subscribe to Pusher for real-time updates
   useEffect(() => {
-    // Short delay to ensure the input is rendered
+    fetchLeaderboard();
+
+    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+    });
+    const channel = pusher.subscribe("leaderboard");
+    channel.bind("rating-updated", (updateData: { rating: number; profileId: string }) => {
+      console.log("Rating update received:", updateData);
+      fetchLeaderboard();
+    });
+
+    return () => {
+      channel.unbind_all();
+      channel.unsubscribe();
+    };
+  }, []);
+
+  // Optional: Focus the search input after a short delay on mount
+  useEffect(() => {
     const timer = setTimeout(() => {
       if (searchInputRef.current) {
         searchInputRef.current.focus();
@@ -76,14 +168,21 @@ export default function Leaderboard() {
         </h1>
       </div>
 
-
       {/* Prominent Search Bar */}
       <div className="">
-        <div className={`relative w-full transition-all duration-300 ${isSearchFocused ? "scale-102" : ""}`}>
+        <div
+          className={`relative w-full transition-all duration-300 ${
+            isSearchFocused ? "scale-102" : ""
+          }`}
+        >
           <div className="absolute inset-0 -m-1 bg-gradient-to-r from-primary/50 to-purple-500/50 rounded-2xl blur-md opacity-70 animate-pulse-glow"></div>
           <div className="relative bg-secondary/30 backdrop-blur-sm rounded-xl border border-primary/30 shadow-xl overflow-hidden">
             <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
-              <Search className={`h-6 w-6 transition-colors duration-300 ${isSearchFocused ? "text-primary" : "text-primary/70"}`} />
+              <Search
+                className={`h-6 w-6 transition-colors duration-300 ${
+                  isSearchFocused ? "text-primary" : "text-primary/70"
+                }`}
+              />
             </div>
             <Input
               ref={searchInputRef}
@@ -126,11 +225,11 @@ export default function Leaderboard() {
                 All Profiles
               </CardTitle>
               <CardDescription className="text-base">
-                {filteredProfiles.length} profiles found
+                {profiles.length} profiles found
                 {searchTerm && ` for "${searchTerm}"`}
               </CardDescription>
             </div>
-            {searchTerm && filteredProfiles.length > 0 && (
+            {searchTerm && profiles.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -143,9 +242,13 @@ export default function Leaderboard() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className={`transition-opacity duration-300 ${showResults ? "opacity-100" : "opacity-0"}`}>
-            {filteredProfiles.length > 0 ? (
-              filteredProfiles.map((profile, index) => (
+          <div
+            className={`transition-opacity duration-300 ${
+              profiles.length ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            {profiles.length > 0 ? (
+              profiles.map((profile, index) => (
                 <div
                   key={profile.id}
                   className={`flex items-center gap-4 p-5 border-b border-border/20 hover:bg-secondary/20 transition-all duration-300 animate-slide-up ${
@@ -178,31 +281,59 @@ export default function Leaderboard() {
                         : "bg-gradient-to-r from-primary/20 to-purple-500/20"
                     }`}
                   >
-                    <span className="font-bold text-lg">{profile.name.charAt(0)}</span>
+                    <span className="font-bold text-lg">
+                      {profile.name.charAt(0)}
+                    </span>
                   </div>
 
                   <div className="flex-1">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div>
                         <h4 className="font-medium text-lg">{profile.name}</h4>
-                        <p className="text-sm text-muted-foreground">{profile.username}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {profile.username}
+                        </p>
                       </div>
 
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
                           <span className="font-bold">{profile.rating}</span>
-                          <RatingStars initialRating={0} displayOnly={false} size="sm" profileId={profile.id.toString()} />
-                          <span className="text-xs text-muted-foreground">({profile.ratings})</span>
+                          <RatingStars
+                            initialRating={profile.rating}
+                            displayOnly={false}
+                            size="sm"
+                            profileId={profile.id.toString()}
+                            onRate={(newRating: number) =>
+                              handleRatingChange(profile, newRating)
+                            }
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            ({profile.ratings})
+                          </span>
                         </div>
 
                         <div className="hidden sm:flex items-center">
-                          {profile.change === "up" && <span className="text-green-500 text-sm font-bold">↑</span>}
-                          {profile.change === "down" && <span className="text-red-500 text-sm font-bold">↓</span>}
-                          {profile.change === "same" && <span className="text-muted-foreground text-sm">-</span>}
+                          {profile.change === "up" && (
+                            <span className="text-green-500 text-sm font-bold">
+                              ↑
+                            </span>
+                          )}
+                          {profile.change === "down" && (
+                            <span className="text-red-500 text-sm font-bold">
+                              ↓
+                            </span>
+                          )}
+                          {profile.change === "same" && (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
                         </div>
 
                         <Link href={`/profile/${profile.id}`}>
-                          <Button variant="ghost" size="sm" className="glow-effect rounded-full px-4">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="glow-effect rounded-full px-4"
+                          >
                             View
                           </Button>
                         </Link>
@@ -216,9 +347,14 @@ export default function Leaderboard() {
                 <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="text-xl font-medium mb-2">No profiles found</h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all profiles.
+                  We couldn't find any profiles matching "
+                  {searchTerm}". Try a different search term or browse all profiles.
                 </p>
-                <Button variant="outline" className="mt-4 glow-effect" onClick={() => setSearchTerm("")}>
+                <Button
+                  variant="outline"
+                  className="mt-4 glow-effect"
+                  onClick={() => setSearchTerm("")}
+                >
                   Show all profiles
                 </Button>
               </div>

@@ -9,6 +9,7 @@ interface RatingStarsProps {
   displayOnly?: boolean
   size?: "sm" | "md" | "lg"
   profileId?: string
+  onRate?: (rating: number) => void
 }
 
 export default function RatingStars({
@@ -16,6 +17,7 @@ export default function RatingStars({
   displayOnly = false,
   size = "md",
   profileId,
+  onRate,
 }: RatingStarsProps) {
   const [rating, setRating] = useState(initialRating)
   const [hoverRating, setHoverRating] = useState(0)
@@ -31,6 +33,10 @@ export default function RatingStars({
       title: "Rating submitted",
       description: `You rated ${profileId ? `profile #${profileId}` : "this profile"} ${value} stars.`,
     })
+
+    if (onRate) {
+      onRate(value)
+    }
   }
 
   const starSize = {
@@ -63,4 +69,3 @@ export default function RatingStars({
     </div>
   )
 }
-
