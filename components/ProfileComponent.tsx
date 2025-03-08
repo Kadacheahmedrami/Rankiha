@@ -1,54 +1,65 @@
-import { Button } from "@/components/ui/button"
+"use client";
+
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { ArrowLeft, Calendar, MapPin, Star, Award } from "lucide-react"
-import Link from "next/link"
-import AppLayout from "@/components/app-layout"
+} from "@/components/ui/card";
+import { ArrowLeft, Calendar, MapPin, Star, Award } from "lucide-react";
+import Link from "next/link";
+import AppLayout from "@/components/app-layout";
 
 // Define the profile type
 export type Profile = {
-  id: string
-  name: string
-  username: string
-  bio: string
-  location: string
-  joinedDate: string
-  rating: number
-  totalRatings: number
-  ratingDistribution: number[]
-}
+  id: string;
+  name: string;
+  username: string;
+  bio: string;
+  location: string;
+  joinedDate: string;
+  rating: number;
+  totalRatings: number;
+  ratingDistribution: number[];
+};
 
-// Define the user type according to your session.user shape
-export type User = {
-  id: string
-  name?: string | null
-  email?: string | null
-  image?: string | null
-}
-
-// Update the component props to only include user
+// Update the component props to require an id
 type ProfileComponentProps = {
-  user?: User
-}
+  id: string;
+};
 
-export function ProfileComponent({ user }: ProfileComponentProps) {
-  // Define the profile object locally within the component
-  const profile: Profile = {
-    id: "1",
-    name: "Alex Johnson",
-    username: "@alexj",
-    bio: "Product designer and developer based in New York. Passionate about creating intuitive user experiences and beautiful interfaces.",
-    location: "New York, USA",
-    joinedDate: "January 2022",
-    rating: 4.8,
-    totalRatings: 124,
-    ratingDistribution: [85, 25, 10, 3, 1],
-  }
+export function ProfileComponent({ id }: ProfileComponentProps) {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch profile data from /api/user/[id]
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch(`/api/user/${id}`);
+        if (!res.ok) {
+          throw new Error("Failed to fetch profile");
+        }
+        const data: Profile = await res.json();
+        setProfile(data);
+      } catch (err) {
+        setError("Error loading profile");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [id]);
+
+  if (loading) return <AppLayout><div className="p-6">Loading...</div></AppLayout>;
+  if (error || !profile)
+    return <AppLayout><div className="p-6">{error || "Profile not found"}</div></AppLayout>;
 
   return (
     <AppLayout>
@@ -65,7 +76,7 @@ export function ProfileComponent({ user }: ProfileComponentProps) {
               Profile Page
             </h1>
           </div>
-          <p className="text-lg">Welcome, {user?.name ?? "User"}!</p>
+          <p className="text-lg">Welcome, {profile.name || "User"}!</p>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-3">
@@ -222,5 +233,5 @@ export function ProfileComponent({ user }: ProfileComponentProps) {
         </div>
       </div>
     </AppLayout>
-  )
+  );
 }
