@@ -10,116 +10,69 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { TrendingUp, Search } from "lucide-react";
-import Link from "next/link"; 
+import Link from "next/link";
 import RatingStars from "@/components/rating-stars";
 import { useEffect, useState, useRef } from "react";
 import Pusher from "pusher-js";
 
-
-// Define a Profile interface to type the profile object
+// Define a Profile interface for leaderboard items
 interface Profile {
   id: string;
   name: string;
   username: string;
   rating: number;
   ratings: number | null;
-  change: 'up' | 'down' | 'same';
+  change: "up" | "down" | "same";
   image: string;
-  userRatingId?: string; // Optional property if the current user already rated this profile
 }
 
-// Enhanced TypeScript version of the rating submission function
-const handleRatingChange = async (profile: Profile, newRating: number): Promise<void> => {
-  try {
-    console.log("Submitting rating for profile:", profile);
-    let response: Response;
-
-    if (profile.userRatingId) {
-      // Update existing rating using PATCH on /api/rating/[id]
-      response = await fetch(`/api/rating/${profile.userRatingId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ value: newRating }),
-      });
-    } else {
-      // Create a new rating using POST on /api/rating
-      response = await fetch("/api/rating", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ratedUserId: profile.id, value: newRating }),
-      });
-    }
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Error rating profile:", errorData.error || response.statusText);
-      return;
-    }
-
-    const data = await response.json();
-    console.log("Rating submitted successfully:", data);
-
-    // Refresh the leaderboard after the rating update
-    fetchLeaderboard(); // Ensure fetchLeaderboard is defined in your component's scope
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      console.error("Error submitting rating:", error.message);
-    } else {
-      console.error("An unexpected error occurred while submitting the rating.");
-    }
-  }
-};
-
-
 export default function Leaderboard() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [profiles, setProfiles] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch leaderboard data (assumed to include a `userRatingId` field when applicable)
-  const fetchLeaderboard = async () => {
+  // Fetch leaderboard data (assumed to include profile info)
+  const fetchLeaderboard = async (): Promise<void> => {
     try {
       const query = searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : "";
       const res = await fetch(`/api/leaderboard${query}`);
-      const data = await res.json();
+      if (!res.ok) {
+        console.error("Error fetching leaderboard:", res.statusText);
+        return;
+      }
+      const data: Profile[] = await res.json();
       setProfiles(data);
     } catch (error) {
       console.error("Error fetching leaderboard:", error);
     }
   };
 
-  // Handle rating submission: update if rating exists, create new if not.
-  const handleRatingChange = async (profile: any, newRating: number) => {
+  // Handle rating submission using the POST upsert endpoint.
+  // Since the profile object does not include a separate rating ID, always use the POST endpoint.
+  const handleRatingChange = async (profile: Profile, newRating: number): Promise<void> => {
     try {
-      console.log(profile)
-      let res;
-      if (profile.userRatingId) {
-       
-        // Update existing rating using PATCH on /api/rating/[id]
-        res = await fetch(`/api/rating/${profile.userRatingId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ value: newRating }),
-        });
-      } else {
-        // Create new rating using POST on /api/rating
-        res = await fetch("/api/rating", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ratedUserId: profile.id, value: newRating }),
-        });
+      console.log("Submitting rating for profile:", profile);
+      const response: Response = await fetch("/api/rating", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ratedUserId: profile.id, value: newRating }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Error rating profile:", errorData.error || response.statusText);
+        return;
       }
-      const data = await res.json();
-      if (data.error) {
-        console.error("Error rating profile:", data.error);
+      const data = await response.json();
+      console.log("Rating submitted successfully:", data);
+      // Refresh the leaderboard after the rating update
+      await fetchLeaderboard();
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("Error submitting rating:", error.message);
       } else {
-        console.log("Rating submitted successfully:", data);
-        // Refresh the leaderboard after the rating update
-        fetchLeaderboard();
+        console.error("An unexpected error occurred while submitting the rating.");
       }
-    } catch (error) {
-      console.error("Error submitting rating:", error);
     }
   };
 
@@ -153,9 +106,7 @@ export default function Leaderboard() {
   // Optional: Focus the search input after a short delay on mount
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (searchInputRef.current) {
-        searchInputRef.current.focus();
-      }
+      searchInputRef.current?.focus();
     }, 500);
     return () => clearTimeout(timer);
   }, []);
@@ -169,19 +120,13 @@ export default function Leaderboard() {
       </div>
 
       {/* Prominent Search Bar */}
-      <div className="">
-        <div
-          className={`relative w-full transition-all duration-300 ${
-            isSearchFocused ? "scale-102" : ""
-          }`}
-        >
+      <div>
+        <div className={`relative w-full transition-all duration-300 ${isSearchFocused ? "scale-102" : ""}`}>
           <div className="absolute inset-0 -m-1 bg-gradient-to-r from-primary/50 to-purple-500/50 rounded-2xl blur-md opacity-70 animate-pulse-glow"></div>
           <div className="relative bg-secondary/30 backdrop-blur-sm rounded-xl border border-primary/30 shadow-xl overflow-hidden">
             <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
               <Search
-                className={`h-6 w-6 transition-colors duration-300 ${
-                  isSearchFocused ? "text-primary" : "text-primary/70"
-                }`}
+                className={`h-6 w-6 transition-colors duration-300 ${isSearchFocused ? "text-primary" : "text-primary/70"}`}
               />
             </div>
             <Input
@@ -225,8 +170,7 @@ export default function Leaderboard() {
                 All Profiles
               </CardTitle>
               <CardDescription className="text-base">
-                {profiles.length} profiles found
-                {searchTerm && ` for "${searchTerm}"`}
+                {profiles.length} profiles found {searchTerm && `for "${searchTerm}"`}
               </CardDescription>
             </div>
             {searchTerm && profiles.length > 0 && (
@@ -242,11 +186,7 @@ export default function Leaderboard() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div
-            className={`transition-opacity duration-300 ${
-              profiles.length ? "opacity-100" : "opacity-0"
-            }`}
-          >
+          <div className={`transition-opacity duration-300 ${profiles.length ? "opacity-100" : "opacity-0"}`}>
             {profiles.length > 0 ? (
               profiles.map((profile, index) => (
                 <div
@@ -290,9 +230,7 @@ export default function Leaderboard() {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div>
                         <h4 className="font-medium text-lg">{profile.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {profile.username}
-                        </p>
+                        <p className="text-sm text-muted-foreground">{profile.username}</p>
                       </div>
 
                       <div className="flex items-center gap-4">
@@ -302,10 +240,8 @@ export default function Leaderboard() {
                             initialRating={profile.rating}
                             displayOnly={false}
                             size="sm"
-                            profileId={profile.id.toString()}
-                            onRate={(newRating: number) =>
-                              handleRatingChange(profile, newRating)
-                            }
+                            profileId={profile.id}
+                            onRate={(newRating: number) => handleRatingChange(profile, newRating)}
                           />
                           <span className="text-xs text-muted-foreground">
                             ({profile.ratings})
@@ -314,14 +250,10 @@ export default function Leaderboard() {
 
                         <div className="hidden sm:flex items-center">
                           {profile.change === "up" && (
-                            <span className="text-green-500 text-sm font-bold">
-                              ↑
-                            </span>
+                            <span className="text-green-500 text-sm font-bold">↑</span>
                           )}
                           {profile.change === "down" && (
-                            <span className="text-red-500 text-sm font-bold">
-                              ↓
-                            </span>
+                            <span className="text-red-500 text-sm font-bold">↓</span>
                           )}
                           {profile.change === "same" && (
                             <span className="text-muted-foreground text-sm">-</span>
@@ -329,11 +261,7 @@ export default function Leaderboard() {
                         </div>
 
                         <Link href={`/profile/${profile.id}`}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="glow-effect rounded-full px-4"
-                          >
+                          <Button variant="ghost" size="sm" className="glow-effect rounded-full px-4">
                             View
                           </Button>
                         </Link>
@@ -347,14 +275,9 @@ export default function Leaderboard() {
                 <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="text-xl font-medium mb-2">No profiles found</h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  We couldn't find any profiles matching "
-                  {searchTerm}". Try a different search term or browse all profiles.
+                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all profiles.
                 </p>
-                <Button
-                  variant="outline"
-                  className="mt-4 glow-effect"
-                  onClick={() => setSearchTerm("")}
-                >
+                <Button variant="outline" className="mt-4 glow-effect" onClick={() => setSearchTerm("")}>
                   Show all profiles
                 </Button>
               </div>

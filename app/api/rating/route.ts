@@ -7,7 +7,7 @@ import { getServerAuthSession } from '@/app/lib/auth';
 
 const prisma = new PrismaClient();
 
-// Initialize Pusher (using your env variables)
+// Initialize Pusher (using your environment variables)
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID || '',
   key: process.env.PUSHER_KEY || '',
@@ -16,7 +16,12 @@ const pusher = new Pusher({
   useTLS: true
 });
 
-export async function POST(req: NextRequest) {
+interface RatingRequestBody {
+  ratedUserId: string;
+  value: number;
+}
+
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     // Ensure the user is authenticated
     const session = await getServerAuthSession();
@@ -24,27 +29,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Parse the request body
-    const body = await req.json();
+    // Parse and validate the request body
+    const body = (await req.json()) as RatingRequestBody;
     const { ratedUserId, value } = body;
-    
-    // Validate the rating data
+    // console.log(ratedUserId)
+    // console.log(value)
+    // console.log(session?.user)
     if (!ratedUserId || typeof value !== 'number' || value < 1 || value > 5) {
+   
       return NextResponse.json({ error: "Invalid rating data" }, { status: 400 });
     }
 
     // Prevent users from rating themselves
-    if (session.user.id === ratedUserId) {
-      return NextResponse.json({ error: "You cannot rate yourself" }, { status: 400 });
-    }
+    // if (session.user.id === ratedUserId) {
+    //   console.log("damnn")
+    //   return NextResponse.json({ error: "You cannot rate yourself" }, { status: 400 });
+    // }
     
-    // Upsert (create or update) the rating
+    // Upsert the rating using the composite unique key [userId, ratedUserId]
     const rating = await prisma.rating.upsert({
       where: {
         userId_ratedUserId: {
           userId: session.user.id,
           ratedUserId,
-        }
+        },
       },
       update: {
         value,
@@ -53,7 +61,7 @@ export async function POST(req: NextRequest) {
         userId: session.user.id,
         ratedUserId,
         value,
-      }
+      },
     });
     
     // Calculate new average rating for the rated user
@@ -63,7 +71,7 @@ export async function POST(req: NextRequest) {
     const totalRating = userRatings.reduce((sum, r) => sum + r.value, 0);
     const averageRating = totalRating / userRatings.length;
     
-    // Trigger a Pusher event to update the leaderboard in real time
+    // Trigger a Pusher event for real-time leaderboard updates
     await pusher.trigger('leaderboard', 'rating-updated', {
       userId: ratedUserId,
       averageRating,
