@@ -1,10 +1,10 @@
 // File: app/api/leaderboard/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+
 import Pusher from 'pusher';
 import { getServerAuthSession } from '@/app/lib/auth';
 
-const prisma = new PrismaClient();
+import {prisma} from "@/prisma/prismaClient";
 
 // Initialize Pusher
 const pusher = new Pusher({

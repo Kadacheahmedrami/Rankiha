@@ -1,11 +1,9 @@
 // File: app/api/rating/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import Pusher from 'pusher';
 import { getServerAuthSession } from '@/app/lib/auth';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/prisma/prismaClient';
 
 // Initialize Pusher (using your environment variables)
 const pusher = new Pusher({
@@ -23,26 +21,35 @@ interface RatingRequestBody {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
+ 
     // Ensure the user is authenticated
     const session = await getServerAuthSession();
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    console.log(session.user.id);
+    // Upsert the authenticated user to guarantee they exist in the DB
+    await prisma.user.upsert({
+      where: { id: session.user.id },
+      update: {},
+      create: {
+        id: session.user.id,
+        email: session.user.email!,
+        name: session.user.name || null,
+        image: session.user.image || null,
+      },
+    });
 
     // Parse and validate the request body
     const body = (await req.json()) as RatingRequestBody;
     const { ratedUserId, value } = body;
-    // console.log(ratedUserId)
-    // console.log(value)
-    // console.log(session?.user)
+    
     if (!ratedUserId || typeof value !== 'number' || value < 1 || value > 5) {
-   
       return NextResponse.json({ error: "Invalid rating data" }, { status: 400 });
     }
 
     // Prevent users from rating themselves
     // if (session.user.id === ratedUserId) {
-    //   console.log("damnn")
     //   return NextResponse.json({ error: "You cannot rate yourself" }, { status: 400 });
     // }
     
@@ -54,9 +61,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           ratedUserId,
         },
       },
-      update: {
-        value,
-      },
+      update: { value },
       create: {
         userId: session.user.id,
         ratedUserId,

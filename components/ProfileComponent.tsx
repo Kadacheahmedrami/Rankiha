@@ -57,9 +57,27 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
     fetchProfile();
   }, [id]);
 
-  if (loading) return <AppLayout><div className="p-6">Loading...</div></AppLayout>;
+  if (loading)
+    return (
+      <AppLayout>
+        <div className="p-6">Loading...</div>
+      </AppLayout>
+    );
   if (error || !profile)
-    return <AppLayout><div className="p-6">{error || "Profile not found"}</div></AppLayout>;
+    return (
+      <AppLayout>
+        <div className="p-6">{error || "Profile not found"}</div>
+      </AppLayout>
+    );
+
+  // Use safe default values to avoid NaN outputs
+  const safeRating = profile.rating ?? 0;
+  const safeTotalRatings = profile.totalRatings ?? 0;
+  // Ensure ratingDistribution has 5 numbers; if not, use an array of zeros.
+  const safeDistribution =
+    profile.ratingDistribution && profile.ratingDistribution.length === 5
+      ? profile.ratingDistribution
+      : [0, 0, 0, 0, 0];
 
   return (
     <AppLayout>
@@ -89,7 +107,7 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
               <CardContent className="pt-0 relative">
                 <div className="w-24 h-24 rounded-full bg-gradient-to-r from-primary/50 to-purple-500/50 flex items-center justify-center absolute -top-12 left-6 ring-4 ring-background shadow-xl">
                   <span className="font-bold text-3xl">
-                    {profile.name.charAt(0)}
+                    {profile.name ? profile.name.charAt(0) : "U"}
                   </span>
                 </div>
                 <div className="absolute top-4 right-4">
@@ -99,8 +117,12 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
                 </div>
                 <div className="pt-16 pb-4 space-y-5">
                   <div>
-                    <h2 className="text-2xl font-bold">{profile.name}</h2>
-                    <p className="text-muted-foreground">{profile.username}</p>
+                    <h2 className="text-2xl font-bold">
+                      {profile.name || "User"}
+                    </h2>
+                    <p className="text-muted-foreground">
+                      {profile.username || "Username"}
+                    </p>
                   </div>
 
                   <div className="flex items-center gap-2 p-3 bg-secondary/20 rounded-lg">
@@ -111,31 +133,33 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
                           <Star
                             key={i}
                             className={`h-5 w-5 ${
-                              i < Math.floor(profile.rating)
+                              i < Math.floor(safeRating)
                                 ? "text-yellow-400 fill-current"
                                 : "text-muted-foreground"
                             }`}
                           />
                         ))}
                     </div>
-                    <span className="font-bold text-lg">{profile.rating}</span>
+                    <span className="font-bold text-lg">{safeRating}</span>
                     <span className="text-sm text-muted-foreground">
-                      ({profile.totalRatings} ratings)
+                      ({safeTotalRatings} ratings)
                     </span>
                   </div>
 
                   <div className="p-4 border border-border/20 rounded-lg bg-secondary/10">
-                    <p className="text-sm italic">{profile.bio}</p>
+                    <p className="text-sm italic">
+                      {profile.bio || "No bio available"}
+                    </p>
                   </div>
 
                   <div className="space-y-3 pt-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MapPin className="h-4 w-4 text-primary" />
-                      <span>{profile.location}</span>
+                      <span>{profile.location || "Unknown location"}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4 text-primary" />
-                      <span>Joined {profile.joinedDate}</span>
+                      <span>Joined {profile.joinedDate || "N/A"}</span>
                     </div>
                   </div>
                 </div>
@@ -151,82 +175,91 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
                   Rating Overview
                 </CardTitle>
                 <CardDescription>
-                  Based on {profile.totalRatings} ratings
+                  {safeTotalRatings > 0
+                    ? `Based on ${safeTotalRatings} ratings`
+                    : "No ratings yet"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {[5, 4, 3, 2, 1].map((rating, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 w-12">
-                        <span className="font-medium">{rating}</span>
-                        <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      </div>
-                      <div className="flex-1 h-3 bg-secondary/40 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${
-                            rating === 5
-                              ? "bg-gradient-to-r from-primary to-purple-500"
-                              : rating === 4
-                              ? "bg-gradient-to-r from-blue-400 to-blue-500"
-                              : rating === 3
-                              ? "bg-gradient-to-r from-green-400 to-green-500"
-                              : rating === 2
-                              ? "bg-gradient-to-r from-yellow-400 to-yellow-500"
-                              : "bg-gradient-to-r from-red-400 to-red-500"
-                          }`}
-                          style={{
-                            width: `${
-                              (profile.ratingDistribution[5 - rating] /
-                                profile.totalRatings) *
-                              100
-                            }%`,
-                          }}
-                        ></div>
-                      </div>
-                      <span className="text-sm font-medium w-12 text-right">
-                        {profile.ratingDistribution[5 - rating]}
-                      </span>
-                      <span className="text-xs text-muted-foreground w-16 text-right">
-                        {Math.round(
-                          (profile.ratingDistribution[5 - rating] /
-                            profile.totalRatings) *
-                            100
-                        )}
-                        %
-                      </span>
+                {safeTotalRatings > 0 ? (
+                  <>
+                    <div className="space-y-4">
+                      {[5, 4, 3, 2, 1].map((rating, i) => {
+                        const count = safeDistribution[5 - rating] || 0;
+                        const percentage = Math.round(
+                          (count / safeTotalRatings) * 100
+                        );
+                        return (
+                          <div key={i} className="flex items-center gap-3">
+                            <div className="flex items-center gap-1 w-12">
+                              <span className="font-medium">{rating}</span>
+                              <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                            </div>
+                            <div className="flex-1 h-3 bg-secondary/40 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${
+                                  rating === 5
+                                    ? "bg-gradient-to-r from-primary to-purple-500"
+                                    : rating === 4
+                                    ? "bg-gradient-to-r from-blue-400 to-blue-500"
+                                    : rating === 3
+                                    ? "bg-gradient-to-r from-green-400 to-green-500"
+                                    : rating === 2
+                                    ? "bg-gradient-to-r from-yellow-400 to-yellow-500"
+                                    : "bg-gradient-to-r from-red-400 to-red-500"
+                                }`}
+                                style={{
+                                  width: `${(count / safeTotalRatings) * 100}%`,
+                                }}
+                              ></div>
+                            </div>
+                            <span className="text-sm font-medium w-12 text-right">
+                              {count}
+                            </span>
+                            <span className="text-xs text-muted-foreground w-16 text-right">
+                              {percentage}%
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
 
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card className="bg-secondary/10 border-0">
-                    <CardContent className="p-4 text-center">
-                      <h3 className="text-sm text-muted-foreground mb-1">
-                        Average Rating
-                      </h3>
-                      <p className="text-3xl font-bold">{profile.rating}</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-secondary/10 border-0">
-                    <CardContent className="p-4 text-center">
-                      <h3 className="text-sm text-muted-foreground mb-1">
-                        Total Ratings
-                      </h3>
-                      <p className="text-3xl font-bold">{profile.totalRatings}</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-secondary/10 border-0">
-                    <CardContent className="p-4 text-center">
-                      <h3 className="text-sm text-muted-foreground mb-1">
-                        5-Star Ratings
-                      </h3>
-                      <p className="text-3xl font-bold">
-                        {profile.ratingDistribution[0]}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
+                    <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Card className="bg-secondary/10 border-0">
+                        <CardContent className="p-4 text-center">
+                          <h3 className="text-sm text-muted-foreground mb-1">
+                            Average Rating
+                          </h3>
+                          <p className="text-3xl font-bold">{safeRating}</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-secondary/10 border-0">
+                        <CardContent className="p-4 text-center">
+                          <h3 className="text-sm text-muted-foreground mb-1">
+                            Total Ratings
+                          </h3>
+                          <p className="text-3xl font-bold">
+                            {safeTotalRatings}
+                          </p>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-secondary/10 border-0">
+                        <CardContent className="p-4 text-center">
+                          <h3 className="text-sm text-muted-foreground mb-1">
+                            5-Star Ratings
+                          </h3>
+                          <p className="text-3xl font-bold">
+                            {safeDistribution[0] || 0}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-center text-muted-foreground">
+                    No ratings available.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>
