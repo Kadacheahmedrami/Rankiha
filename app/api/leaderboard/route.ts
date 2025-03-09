@@ -32,21 +32,20 @@ async function getUserRank(averageRating: number, ratingsCount: number): Promise
     WHERE leaderboard.rating > ${averageRating}
       OR (leaderboard.rating = ${averageRating} AND leaderboard."ratingsCount" > ${ratingsCount})
   `;
-  // Convert the count (returned as string) to a number, then add 1 for the rank
   return parseInt(rankResult[0].higherCount) + 1;
 }
 
-// GET: Fetch leaderboard data
+// GET: Fetch leaderboard data with pagination metadata
 export async function GET(req: NextRequest) {
   try {
-    // Get query parameters for filtering
+    // Get query parameters for filtering and pagination
     const searchParams = req.nextUrl.searchParams;
     const searchTerm = searchParams.get('search') || '';
     const limit = parseInt(searchParams.get('limit') || '20');
     const page = parseInt(searchParams.get('page') || '1');
     const skip = (page - 1) * limit;
 
-    // Fetch users with their average rating
+    // Fetch paginated users with their average rating
     const users = await prisma.$queryRaw<any[]>`
       SELECT 
         u.id, 
@@ -66,7 +65,16 @@ export async function GET(req: NextRequest) {
       LIMIT ${limit} OFFSET ${skip}
     `;
 
-    // Get the previous leaderboard (cached or from DB) to calculate changes
+    // Get total count of users matching the search criteria
+    const countResult = await prisma.$queryRaw<{ count: string }[]>`
+      SELECT COUNT(*) as count
+      FROM "User" u
+      WHERE u.name ILIKE ${`%${searchTerm}%`} OR u.email ILIKE ${`%${searchTerm}%`}
+    `;
+    const totalCount = parseInt(countResult[0].count);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Get previous leaderboard (to calculate change indicators)
     const previousRankings = await prisma.$queryRaw<any[]>`
       SELECT 
         u.id, 
@@ -78,16 +86,14 @@ export async function GET(req: NextRequest) {
       GROUP BY u.id
       ORDER BY rating DESC, "ratingsCount" DESC
     `;
-
-    // Map previous rankings to a lookup object
     const prevRankingsMap = new Map<string, number>();
     previousRankings.forEach((user, index) => {
       prevRankingsMap.set(user.id, index + 1);
     });
 
-    // Format the response with change indicators and current rank for this page
+    // Format the leaderboard results with change indicators and rank (current page rank)
     const leaderboard = users.map((user, index) => {
-      const currentRank = index + 1;
+      const currentRank = skip + index + 1; // Global rank based on pagination offset
       const previousRank = prevRankingsMap.get(user.id) || currentRank;
       
       let change: "up" | "down" | "same" = "same";
@@ -102,11 +108,19 @@ export async function GET(req: NextRequest) {
         ratings: parseInt(user.ratingsCount),
         change,
         image: user.image,
-        rank: currentRank
+        rank: currentRank,
       };
     });
 
-    return NextResponse.json(leaderboard);
+    return NextResponse.json({
+      data: leaderboard,
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages,
+      },
+    });
   } catch (error) {
     console.error("Error fetching leaderboard:", error);
     return NextResponse.json({ error: "Failed to fetch leaderboard" }, { status: 500 });
@@ -120,7 +134,7 @@ export async function POST(req: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const currentUser = session.user; // Now safely assigned
+    const currentUser = session.user;
 
     const body = await req.json();
     const { ratedUserId, value } = body;
@@ -139,20 +153,20 @@ export async function POST(req: NextRequest) {
       where: {
         userId_ratedUserId: {
           userId: currentUser.id,
-          ratedUserId
-        }
+          ratedUserId,
+        },
       },
       update: { value },
       create: {
         userId: currentUser.id,
         ratedUserId,
-        value
-      }
+        value,
+      },
     });
     
     // Calculate new average rating for the rated user
     const userRatings = await prisma.rating.findMany({
-      where: { ratedUserId }
+      where: { ratedUserId },
     });
     
     const totalRating = userRatings.reduce((sum, r) => sum + r.value, 0);
@@ -163,11 +177,11 @@ export async function POST(req: NextRequest) {
     const rank = await getUserRank(averageRating, userRatings.length);
     
     // Trigger Pusher event for real-time updates
-    await pusher.trigger('leaderboard', 'rating-updated', {
+    await pusher.trigger("leaderboard", "rating-updated", {
       userId: ratedUserId,
       averageRating: averageRatingRounded,
       ratingsCount: userRatings.length,
-      rank
+      rank,
     });
     
     return NextResponse.json({ 
@@ -175,7 +189,7 @@ export async function POST(req: NextRequest) {
       rating,
       averageRating: averageRatingRounded,
       ratingsCount: userRatings.length,
-      rank
+      rank,
     });
   } catch (error) {
     console.error("Error creating/updating rating:", error);
@@ -223,15 +237,15 @@ export async function PATCH(req: NextRequest) {
           where: {
             userId_ratedUserId: {
               userId: currentUser.id,
-              ratedUserId: rating.ratedUserId
-            }
+              ratedUserId: rating.ratedUserId,
+            },
           },
           update: { value: rating.value },
           create: {
             userId: currentUser.id,
             ratedUserId: rating.ratedUserId,
-            value: rating.value
-          }
+            value: rating.value,
+          },
         });
         results.push(result);
       }
@@ -240,12 +254,12 @@ export async function PATCH(req: NextRequest) {
     });
     
     // Calculate and broadcast updates for each affected user
-    const affectedUserIds = [...new Set(ratings.map(r => r.ratedUserId))];
+    const affectedUserIds = [...new Set(ratings.map((r) => r.ratedUserId))];
     
     const updates = await Promise.all(
       affectedUserIds.map(async (userId) => {
         const userRatings = await prisma.rating.findMany({
-          where: { ratedUserId: userId }
+          where: { ratedUserId: userId },
         });
         
         const totalRating = userRatings.reduce((sum, r) => sum + r.value, 0);
@@ -254,18 +268,18 @@ export async function PATCH(req: NextRequest) {
         const rank = await getUserRank(averageRating, userRatings.length);
         
         // Trigger Pusher event for each updated user
-        await pusher.trigger('leaderboard', 'rating-updated', {
+        await pusher.trigger("leaderboard", "rating-updated", {
           userId,
           averageRating: averageRatingRounded,
           ratingsCount: userRatings.length,
-          rank
+          rank,
         });
         
         return {
           userId,
           averageRating: averageRatingRounded,
           ratingsCount: userRatings.length,
-          rank
+          rank,
         };
       })
     );
@@ -273,7 +287,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       updatedRatings,
-      updates
+      updates,
     });
   } catch (error) {
     console.error("Error updating multiple ratings:", error);

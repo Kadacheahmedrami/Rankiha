@@ -10,6 +10,7 @@ interface RatingStarsProps {
   size?: "sm" | "md" | "lg"
   profileId?: string
   onRate?: (rating: number) => void
+  disableSelfRating?: boolean  // New prop to disable self rating
 }
 
 export default function RatingStars({
@@ -18,6 +19,7 @@ export default function RatingStars({
   size = "md",
   profileId,
   onRate,
+  disableSelfRating = false,
 }: RatingStarsProps) {
   const [rating, setRating] = useState(initialRating)
   const [hoverRating, setHoverRating] = useState(0)
@@ -25,6 +27,16 @@ export default function RatingStars({
 
   const handleRating = (value: number) => {
     if (displayOnly) return
+
+    // If self rating is disabled, show error toast and do not allow rating.
+    if (disableSelfRating) {
+      toast({
+        title: "Nooo",
+        description: "You cannot rate yourself",
+        variant: "destructive",
+      })
+      return
+    }
 
     setRating(value)
     setHasRated(true)

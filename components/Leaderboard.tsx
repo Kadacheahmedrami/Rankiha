@@ -9,6 +9,7 @@ import RatingStars from "@/components/rating-stars"
 import { useEffect, useState, useRef } from "react"
 import Pusher from "pusher-js"
 import { useSession } from "next-auth/react"
+import { toast } from "react-hot-toast"  // Importing toast from react-hot-toast
 
 // Extended Profile interface to include 'rank'
 interface Profile {
@@ -26,27 +27,50 @@ export default function Leaderboard() {
   const [searchTerm, setSearchTerm] = useState<string>("")
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false)
   const [profiles, setProfiles] = useState<Profile[]>([])
+  const [page, setPage] = useState<number>(1)
+  const [limit] = useState<number>(20)
+  const [totalPages, setTotalPages] = useState<number>(1)
+  const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const { data: session } = useSession()
 
-  // Fetch leaderboard data (assumed to include profile info, including rank)
+  // Fetch leaderboard data with pagination metadata
   const fetchLeaderboard = async (): Promise<void> => {
     try {
-      const query = searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : ""
+      const queryParams = new URLSearchParams()
+      if (searchTerm) queryParams.append("search", searchTerm)
+      queryParams.append("page", page.toString())
+      queryParams.append("limit", limit.toString())
+      const query = "?" + queryParams.toString()
       const res = await fetch(`/api/leaderboard${query}`)
       if (!res.ok) {
         console.error("Error fetching leaderboard:", res.statusText)
         return
       }
-      const data: Profile[] = await res.json()
-      setProfiles(data)
+      const json = await res.json()
+      // If we're on page 1, replace the leaderboard; otherwise, append new results.
+      if (page === 1) {
+        setProfiles(json.data)
+      } else {
+        setProfiles((prev) => [...prev, ...json.data])
+      }
+      setTotalPages(json.pagination.totalPages)
+      setIsFetchingMore(false)
     } catch (error) {
       console.error("Error fetching leaderboard:", error)
+      setIsFetchingMore(false)
     }
   }
 
   // Handle rating submission using the POST upsert endpoint.
   const handleRatingChange = async (profile: Profile, newRating: number): Promise<void> => {
+    // Check if the user is trying to rate themselves
+    if (session?.user?.id === profile.id) {
+      console.log("Attempt to rate self detected")
+      toast.error("You cannot rate yourself")
+      return
+    }
+
     try {
       console.log("Submitting rating for profile:", profile)
       const response: Response = await fetch("/api/rating", {
@@ -72,34 +96,55 @@ export default function Leaderboard() {
     }
   }
 
-  // Debounced fetch when searchTerm changes
+  // Debounced fetch when searchTerm changes; reset page to 1 on search change.
   useEffect(() => {
+    setPage(1)
     const delayDebounceFn = setTimeout(() => {
       fetchLeaderboard()
     }, 300)
     return () => clearTimeout(delayDebounceFn)
   }, [searchTerm])
 
-  // Initial fetch and subscribe to Pusher for real-time updates
+  // Re-fetch when page changes
   useEffect(() => {
     fetchLeaderboard()
+  }, [page])
 
+  // Infinite scroll: load next page when near bottom if available.
+  useEffect(() => {
+    const handleScroll = () => {
+      if (isFetchingMore) return
+      if (
+        window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 &&
+        page < totalPages
+      ) {
+        setIsFetchingMore(true)
+        setPage((prev) => prev + 1)
+      }
+    }
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [isFetchingMore, page, totalPages])
+
+  // Subscribe to Pusher for real-time updates.
+  useEffect(() => {
     const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
     })
     const channel = pusher.subscribe("leaderboard")
     channel.bind("rating-updated", (updateData: { rating: number; profileId: string; rank?: number }) => {
       console.log("Rating update received:", updateData)
+      // Optionally, reset to page 1 on update:
+      setPage(1)
       fetchLeaderboard()
     })
-
     return () => {
       channel.unbind_all()
       channel.unsubscribe()
     }
   }, [])
 
-  // Optional: Focus the search input after a short delay on mount
+  // Optional: Focus the search input after a short delay on mount.
   useEffect(() => {
     const timer = setTimeout(() => {
       searchInputRef.current?.focus()
@@ -107,7 +152,7 @@ export default function Leaderboard() {
     return () => clearTimeout(timer)
   }, [])
 
-  // Get current user's profile from the fetched leaderboard data using optional chaining
+  // Get current user's profile from the fetched leaderboard data.
   const currentUserProfile = session?.user?.id ? profiles.find((p) => p.id === session.user!.id) : null
 
   return (
@@ -133,7 +178,7 @@ export default function Leaderboard() {
             <Input
               ref={searchInputRef}
               placeholder="Search profiles by name or username..."
-              className="pl-10 sm:pl-14 pr-4 sm:pr-36 py-5 sm:py-7 text-base sm:text-lg border-0 placeholder:text-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="pl-10 sm:pl-14 pr-4 sm:pr-36 h-[60px] sm:py-7 text-base sm:text-lg border-0 placeholder:text-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
@@ -150,14 +195,8 @@ export default function Leaderboard() {
                   Clear
                 </Button>
               )}
-              <div className="h-8 sm:h-10 p-2 py-2 md:py-6  rounded-lg bg-primary flex items-center gap-1 sm:gap-2 shadow-md">
-                <TrendingUp className="h-4 w-4 sm:h-8 sm:w-8" />
-                <div>
-                  <p className="text-[10px] sm:text-xs font-medium leading-none">Your Rank</p>
-                  <p className="text-base sm:text-lg font-bold leading-none">
-                    #{currentUserProfile ? currentUserProfile.rank : "N/A"}
-                  </p>
-                </div>
+              <div className="h-8 sm:h-10 p-2 py-2 md:py-6 font-bold text-[32px] rounded-lg bg-primary flex items-center gap-1 sm:gap-2 shadow-md">
+                <div>#{currentUserProfile ? currentUserProfile.rank : "N/A"}</div>
               </div>
             </div>
           </div>
@@ -209,10 +248,10 @@ export default function Leaderboard() {
                       profile.rank === 1
                         ? "bg-gradient-to-r from-yellow-500/30 to-yellow-600/30 ring-2 ring-yellow-500/30"
                         : profile.rank === 2
-                          ? "bg-gradient-to-r from-gray-400/30 to-gray-500/30 ring-2 ring-gray-400/30"
-                          : profile.rank === 3
-                            ? "bg-gradient-to-r from-amber-600/30 to-amber-700/30 ring-2 ring-amber-600/30"
-                            : "bg-gradient-to-r from-primary/20 to-purple-500/20"
+                        ? "bg-gradient-to-r from-gray-400/30 to-gray-500/30 ring-2 ring-gray-400/30"
+                        : profile.rank === 3
+                        ? "bg-gradient-to-r from-amber-600/30 to-amber-700/30 ring-2 ring-amber-600/30"
+                        : "bg-gradient-to-r from-primary/20 to-purple-500/20"
                     }`}
                   >
                     <span className="font-bold text-lg">{profile.name.charAt(0)}</span>
@@ -233,6 +272,7 @@ export default function Leaderboard() {
                             displayOnly={false}
                             size="sm"
                             profileId={profile.id}
+                            disableSelfRating={session?.user?.id === profile.id}
                             onRate={(newRating: number) => handleRatingChange(profile, newRating)}
                           />
                           <span className="text-xs text-muted-foreground">({profile.ratings})</span>
@@ -259,8 +299,7 @@ export default function Leaderboard() {
                 <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="text-xl font-medium mb-2">No profiles found</h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all
-                  profiles.
+                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all profiles.
                 </p>
                 <Button variant="outline" className="mt-4 glow-effect" onClick={() => setSearchTerm("")}>
                   Show all profiles
@@ -273,4 +312,3 @@ export default function Leaderboard() {
     </div>
   )
 }
-
