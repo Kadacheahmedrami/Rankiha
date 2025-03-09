@@ -1,145 +1,131 @@
-"use client";
+"use client"
 
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { TrendingUp, Search } from "lucide-react";
-import Link from "next/link";
-import RatingStars from "@/components/rating-stars";
-import { useEffect, useState, useRef } from "react";
-import Pusher from "pusher-js";
-import { useSession } from "next-auth/react";
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { TrendingUp, Search } from "lucide-react"
+import Link from "next/link"
+import RatingStars from "@/components/rating-stars"
+import { useEffect, useState, useRef } from "react"
+import Pusher from "pusher-js"
+import { useSession } from "next-auth/react"
 
 // Extended Profile interface to include 'rank'
 interface Profile {
-  id: string;
-  name: string;
-  username: string;
-  rating: number;
-  ratings: number | null;
-  change: "up" | "down" | "same";
-  image: string;
-  rank: number;
+  id: string
+  name: string
+  username: string
+  rating: number
+  ratings: number | null
+  change: "up" | "down" | "same"
+  image: string
+  rank: number
 }
 
 export default function Leaderboard() {
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const { data: session } = useSession();
+  const [searchTerm, setSearchTerm] = useState<string>("")
+  const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false)
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const { data: session } = useSession()
 
   // Fetch leaderboard data (assumed to include profile info, including rank)
   const fetchLeaderboard = async (): Promise<void> => {
     try {
-      const query = searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : "";
-      const res = await fetch(`/api/leaderboard${query}`);
+      const query = searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : ""
+      const res = await fetch(`/api/leaderboard${query}`)
       if (!res.ok) {
-        console.error("Error fetching leaderboard:", res.statusText);
-        return;
+        console.error("Error fetching leaderboard:", res.statusText)
+        return
       }
-      const data: Profile[] = await res.json();
-      setProfiles(data);
+      const data: Profile[] = await res.json()
+      setProfiles(data)
     } catch (error) {
-      console.error("Error fetching leaderboard:", error);
+      console.error("Error fetching leaderboard:", error)
     }
-  };
+  }
 
   // Handle rating submission using the POST upsert endpoint.
   const handleRatingChange = async (profile: Profile, newRating: number): Promise<void> => {
     try {
-      console.log("Submitting rating for profile:", profile);
+      console.log("Submitting rating for profile:", profile)
       const response: Response = await fetch("/api/rating", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ratedUserId: profile.id, value: newRating }),
-      });
+      })
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Error rating profile:", errorData.error || response.statusText);
-        return;
+        const errorData = await response.json()
+        console.error("Error rating profile:", errorData.error || response.statusText)
+        return
       }
-      const data = await response.json();
-      console.log("Rating submitted successfully:", data);
+      const data = await response.json()
+      console.log("Rating submitted successfully:", data)
       // Refresh the leaderboard after the rating update
-      await fetchLeaderboard();
+      await fetchLeaderboard()
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error("Error submitting rating:", error.message);
+        console.error("Error submitting rating:", error.message)
       } else {
-        console.error("An unexpected error occurred while submitting the rating.");
+        console.error("An unexpected error occurred while submitting the rating.")
       }
     }
-  };
+  }
 
   // Debounced fetch when searchTerm changes
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      fetchLeaderboard();
-    }, 300);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
+      fetchLeaderboard()
+    }, 300)
+    return () => clearTimeout(delayDebounceFn)
+  }, [searchTerm])
 
   // Initial fetch and subscribe to Pusher for real-time updates
   useEffect(() => {
-    fetchLeaderboard();
+    fetchLeaderboard()
 
     const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-    });
-    const channel = pusher.subscribe("leaderboard");
-    channel.bind(
-      "rating-updated",
-      (updateData: { rating: number; profileId: string; rank?: number }) => {
-        console.log("Rating update received:", updateData);
-        fetchLeaderboard();
-      }
-    );
+    })
+    const channel = pusher.subscribe("leaderboard")
+    channel.bind("rating-updated", (updateData: { rating: number; profileId: string; rank?: number }) => {
+      console.log("Rating update received:", updateData)
+      fetchLeaderboard()
+    })
 
     return () => {
-      channel.unbind_all();
-      channel.unsubscribe();
-    };
-  }, []);
+      channel.unbind_all()
+      channel.unsubscribe()
+    }
+  }, [])
 
   // Optional: Focus the search input after a short delay on mount
   useEffect(() => {
     const timer = setTimeout(() => {
-      searchInputRef.current?.focus();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
+      searchInputRef.current?.focus()
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   // Get current user's profile from the fetched leaderboard data using optional chaining
-  const currentUserProfile =
-    session?.user?.id ? profiles.find((p) => p.id === session.user!.id) : null;
+  const currentUserProfile = session?.user?.id ? profiles.find((p) => p.id === session.user!.id) : null
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 px-2 sm:px-0">
       <div className="flex flex-col gap-3 mb-4">
-        <h1 className="text-4xl font-bold tracking-tight glow-text bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight glow-text bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
           Leaderboard
         </h1>
       </div>
 
       {/* Prominent Search Bar */}
       <div>
-        <div
-          className={`relative w-full transition-all duration-300 ${
-            isSearchFocused ? "scale-102" : ""
-          }`}
-        >
+        <div className={`relative w-full transition-all duration-300 ${isSearchFocused ? "scale-102" : ""}`}>
           <div className="absolute inset-0 -m-1 bg-gradient-to-r from-primary/50 to-purple-500/50 rounded-2xl blur-md opacity-70 animate-pulse-glow"></div>
           <div className="relative bg-secondary/30 backdrop-blur-sm rounded-xl border border-primary/30 shadow-xl overflow-hidden">
-            <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-3 sm:left-5 flex items-center pointer-events-none">
               <Search
-                className={`h-6 w-6 transition-colors duration-300 ${
+                className={`h-5 w-5 sm:h-6 sm:w-6 transition-colors duration-300 ${
                   isSearchFocused ? "text-primary" : "text-primary/70"
                 }`}
               />
@@ -147,7 +133,7 @@ export default function Leaderboard() {
             <Input
               ref={searchInputRef}
               placeholder="Search profiles by name or username..."
-              className="pl-14 pr-36 py-7 text-lg border-0 placeholder:text-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="pl-10 sm:pl-14 pr-4 sm:pr-36 py-5 sm:py-7 text-base sm:text-lg border-0 placeholder:text-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
@@ -158,17 +144,17 @@ export default function Leaderboard() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-9 rounded-lg bg-background/20 hover:bg-background/40 text-foreground"
+                  className="h-8 sm:h-9 rounded-lg bg-background/20 hover:bg-background/40 text-foreground hidden sm:flex"
                   onClick={() => setSearchTerm("")}
                 >
                   Clear
                 </Button>
               )}
-              <div className="h-10 px-3 rounded-lg bg-primary flex items-center gap-2 shadow-md">
-                <TrendingUp className="h-5 w-5" />
+              <div className="h-8 sm:h-10 p-2 py-2 md:py-6  rounded-lg bg-primary flex items-center gap-1 sm:gap-2 shadow-md">
+                <TrendingUp className="h-4 w-4 sm:h-8 sm:w-8" />
                 <div>
-                  <p className="text-xs font-medium leading-none">Your Rank</p>
-                  <p className="text-lg font-bold leading-none">
+                  <p className="text-[10px] sm:text-xs font-medium leading-none">Your Rank</p>
+                  <p className="text-base sm:text-lg font-bold leading-none">
                     #{currentUserProfile ? currentUserProfile.rank : "N/A"}
                   </p>
                 </div>
@@ -181,12 +167,12 @@ export default function Leaderboard() {
       {/* Leaderboard List */}
       <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-b from-background to-secondary/10">
         <CardHeader className="pb-0 border-b border-border/20">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <div>
-              <CardTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
+              <CardTitle className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
                 All Profiles
               </CardTitle>
-              <CardDescription className="text-base">
+              <CardDescription className="text-sm sm:text-base">
                 {profiles.length} profiles found {searchTerm && `for "${searchTerm}"`}
               </CardDescription>
             </div>
@@ -195,7 +181,7 @@ export default function Leaderboard() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setSearchTerm("")}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground self-start sm:self-auto"
               >
                 Clear search
               </Button>
@@ -203,11 +189,7 @@ export default function Leaderboard() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div
-            className={`transition-opacity duration-300 ${
-              profiles.length ? "opacity-100" : "opacity-0"
-            }`}
-          >
+          <div className={`transition-opacity duration-300 ${profiles.length ? "opacity-100" : "opacity-0"}`}>
             {profiles.length > 0 ? (
               profiles.map((profile) => (
                 <div
@@ -217,7 +199,6 @@ export default function Leaderboard() {
                   }`}
                 >
                   <div className="w-8 text-center font-bold text-lg">
-                    {/* Link the current rank to the user's profile */}
                     <Link href={`/profile/${profile.id}`} className="hover:underline">
                       {profile.rank}
                     </Link>
@@ -228,15 +209,13 @@ export default function Leaderboard() {
                       profile.rank === 1
                         ? "bg-gradient-to-r from-yellow-500/30 to-yellow-600/30 ring-2 ring-yellow-500/30"
                         : profile.rank === 2
-                        ? "bg-gradient-to-r from-gray-400/30 to-gray-500/30 ring-2 ring-gray-400/30"
-                        : profile.rank === 3
-                        ? "bg-gradient-to-r from-amber-600/30 to-amber-700/30 ring-2 ring-amber-600/30"
-                        : "bg-gradient-to-r from-primary/20 to-purple-500/20"
+                          ? "bg-gradient-to-r from-gray-400/30 to-gray-500/30 ring-2 ring-gray-400/30"
+                          : profile.rank === 3
+                            ? "bg-gradient-to-r from-amber-600/30 to-amber-700/30 ring-2 ring-amber-600/30"
+                            : "bg-gradient-to-r from-primary/20 to-purple-500/20"
                     }`}
                   >
-                    <span className="font-bold text-lg">
-                      {profile.name.charAt(0)}
-                    </span>
+                    <span className="font-bold text-lg">{profile.name.charAt(0)}</span>
                   </div>
 
                   <div className="flex-1">
@@ -246,43 +225,27 @@ export default function Leaderboard() {
                         <p className="text-sm text-muted-foreground">{profile.username}</p>
                       </div>
 
-                      <div className="flex items-center gap-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mt-2 sm:mt-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold">
-                            {profile.rating.toFixed(1)}
-                          </span>
+                          <span className="font-bold">{profile.rating.toFixed(1)}</span>
                           <RatingStars
                             initialRating={profile.rating}
                             displayOnly={false}
                             size="sm"
                             profileId={profile.id}
-                            onRate={(newRating: number) =>
-                              handleRatingChange(profile, newRating)
-                            }
+                            onRate={(newRating: number) => handleRatingChange(profile, newRating)}
                           />
-                          <span className="text-xs text-muted-foreground">
-                            ({profile.ratings})
-                          </span>
+                          <span className="text-xs text-muted-foreground">({profile.ratings})</span>
                         </div>
 
                         <div className="hidden sm:flex items-center">
-                          {profile.change === "up" && (
-                            <span className="text-green-500 text-sm font-bold">↑</span>
-                          )}
-                          {profile.change === "down" && (
-                            <span className="text-red-500 text-sm font-bold">↓</span>
-                          )}
-                          {profile.change === "same" && (
-                            <span className="text-muted-foreground text-sm">-</span>
-                          )}
+                          {profile.change === "up" && <span className="text-green-500 text-sm font-bold">↑</span>}
+                          {profile.change === "down" && <span className="text-red-500 text-sm font-bold">↓</span>}
+                          {profile.change === "same" && <span className="text-muted-foreground text-sm">-</span>}
                         </div>
 
-                        <Link href={`/profile/${profile.id}`}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="glow-effect rounded-full px-4"
-                          >
+                        <Link href={`/profile/${profile.id}`} className="sm:ml-auto">
+                          <Button variant="ghost" size="sm" className="glow-effect bg-white bg-opacity-10 rounded-full px-4 w-full sm:w-auto">
                             View
                           </Button>
                         </Link>
@@ -296,13 +259,10 @@ export default function Leaderboard() {
                 <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="text-xl font-medium mb-2">No profiles found</h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all profiles.
+                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all
+                  profiles.
                 </p>
-                <Button
-                  variant="outline"
-                  className="mt-4 glow-effect"
-                  onClick={() => setSearchTerm("")}
-                >
+                <Button variant="outline" className="mt-4 glow-effect" onClick={() => setSearchTerm("")}>
                   Show all profiles
                 </Button>
               </div>
@@ -311,5 +271,6 @@ export default function Leaderboard() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }
+

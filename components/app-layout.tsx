@@ -141,7 +141,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 container pt-24 pb-12">{children}</main>
+      <main className="flex-1 md:container pt-24 pb-12">{children}</main>
     </div>
   )
 }
