@@ -1,0 +1,1 @@
+export const BLACKLISTED_EMAILS = ["a_belmehnouf@estin.dz"];

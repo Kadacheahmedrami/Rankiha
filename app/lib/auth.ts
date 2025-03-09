@@ -3,7 +3,7 @@ import { NextAuthOptions, getServerSession } from "next-auth";
 import { DefaultSession } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/prisma/prismaClient";
-
+import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 // Extend the NextAuth types for better TypeScript support
 declare module "next-auth" {
   interface NextAuthOptions {
@@ -23,8 +23,6 @@ declare module "next-auth/jwt" {
   }
 }
 
-// Define a blacklist of emails that are not allowed to sign in
-const BLACKLISTED_EMAILS = ["a_belmehnouf@estin.dz"];
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
