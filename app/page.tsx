@@ -1,20 +1,29 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import Link from "next/link"
-import { ArrowRight, Star } from "lucide-react"
-import { getServerAuthSession } from "@/app/lib/auth"
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import Link from "next/link";
+import { ArrowRight, Star } from "lucide-react";
+import { getServerAuthSession } from "@/app/lib/auth";
+import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
+import { redirect } from "next/navigation";
 
 export default async function Home() {
-  const session = await getServerAuthSession()
-  const names = ["Ramy", "Fady C#", "Boudjm3a", "chemssou"]
-  
+  const session = await getServerAuthSession();
+  const names = ["Ramy", "Fady C#", "Boudjm3a", "chemssou"];
+
+  // Redirect blacklisted users to the banned page
+  if (session?.user?.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
+    redirect("/ban");
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-border/40 backdrop-blur-sm bg-background/80 fixed w-full z-10">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
             <Star className="h-6 w-6 text-primary animate-pulse-glow" />
-            <span className="text-xl font-bold tracking-tight glow-text">Stellar Ranks</span>
+            <span className="text-xl font-bold tracking-tight glow-text">
+              Stellar Ranks
+            </span>
           </div>
           {/* Only show Sign In button when there is no active session */}
           {!session && (
@@ -29,9 +38,6 @@ export default async function Home() {
       </header>
 
       <main className="flex-1 container pt-24 pb-12">
-        {/* Prominent Disclaimer Banner */}
-    
-
         <div className="grid gap-6 lg:grid-cols-2 lg:gap-12 items-center">
           <div className="space-y-4 animate-fade-in">
             <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl glow-text">
@@ -105,7 +111,7 @@ export default async function Home() {
             </Card>
           </div>
         </div>
-        <div className="mt-32 rounded-md border border-purple-500  px-4 py-3 text-center text-yellow-300 font-medium">
+        <div className="mt-32 rounded-md border border-purple-500 px-4 py-3 text-center text-yellow-300 font-medium">
           Note: Your rank will remain anonymous, and only users with an <strong>@estin.dz</strong> email address are accepted in our system.
         </div>
         <div className="mt-24 space-y-12">
@@ -168,5 +174,5 @@ export default async function Home() {
         </div>
       </footer>
     </div>
-  )
+  );
 }
