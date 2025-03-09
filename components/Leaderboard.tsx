@@ -14,8 +14,9 @@ import Link from "next/link";
 import RatingStars from "@/components/rating-stars";
 import { useEffect, useState, useRef } from "react";
 import Pusher from "pusher-js";
+import { useSession } from "next-auth/react";
 
-// Define a Profile interface for leaderboard items
+// Extended Profile interface to include 'rank'
 interface Profile {
   id: string;
   name: string;
@@ -24,6 +25,7 @@ interface Profile {
   ratings: number | null;
   change: "up" | "down" | "same";
   image: string;
+  rank: number;
 }
 
 export default function Leaderboard() {
@@ -31,8 +33,9 @@ export default function Leaderboard() {
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const { data: session } = useSession();
 
-  // Fetch leaderboard data (assumed to include profile info)
+  // Fetch leaderboard data (assumed to include profile info, including rank)
   const fetchLeaderboard = async (): Promise<void> => {
     try {
       const query = searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : "";
@@ -49,7 +52,6 @@ export default function Leaderboard() {
   };
 
   // Handle rating submission using the POST upsert endpoint.
-  // Since the profile object does not include a separate rating ID, always use the POST endpoint.
   const handleRatingChange = async (profile: Profile, newRating: number): Promise<void> => {
     try {
       console.log("Submitting rating for profile:", profile);
@@ -92,10 +94,13 @@ export default function Leaderboard() {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
     });
     const channel = pusher.subscribe("leaderboard");
-    channel.bind("rating-updated", (updateData: { rating: number; profileId: string }) => {
-      console.log("Rating update received:", updateData);
-      fetchLeaderboard();
-    });
+    channel.bind(
+      "rating-updated",
+      (updateData: { rating: number; profileId: string; rank?: number }) => {
+        console.log("Rating update received:", updateData);
+        fetchLeaderboard();
+      }
+    );
 
     return () => {
       channel.unbind_all();
@@ -111,6 +116,10 @@ export default function Leaderboard() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Get current user's profile from the fetched leaderboard data using optional chaining
+  const currentUserProfile =
+    session?.user?.id ? profiles.find((p) => p.id === session.user!.id) : null;
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-col gap-3 mb-4">
@@ -121,12 +130,18 @@ export default function Leaderboard() {
 
       {/* Prominent Search Bar */}
       <div>
-        <div className={`relative w-full transition-all duration-300 ${isSearchFocused ? "scale-102" : ""}`}>
+        <div
+          className={`relative w-full transition-all duration-300 ${
+            isSearchFocused ? "scale-102" : ""
+          }`}
+        >
           <div className="absolute inset-0 -m-1 bg-gradient-to-r from-primary/50 to-purple-500/50 rounded-2xl blur-md opacity-70 animate-pulse-glow"></div>
           <div className="relative bg-secondary/30 backdrop-blur-sm rounded-xl border border-primary/30 shadow-xl overflow-hidden">
             <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
               <Search
-                className={`h-6 w-6 transition-colors duration-300 ${isSearchFocused ? "text-primary" : "text-primary/70"}`}
+                className={`h-6 w-6 transition-colors duration-300 ${
+                  isSearchFocused ? "text-primary" : "text-primary/70"
+                }`}
               />
             </div>
             <Input
@@ -153,7 +168,9 @@ export default function Leaderboard() {
                 <TrendingUp className="h-5 w-5" />
                 <div>
                   <p className="text-xs font-medium leading-none">Your Rank</p>
-                  <p className="text-lg font-bold leading-none">#42</p>
+                  <p className="text-lg font-bold leading-none">
+                    #{currentUserProfile ? currentUserProfile.rank : "N/A"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -186,37 +203,33 @@ export default function Leaderboard() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className={`transition-opacity duration-300 ${profiles.length ? "opacity-100" : "opacity-0"}`}>
+          <div
+            className={`transition-opacity duration-300 ${
+              profiles.length ? "opacity-100" : "opacity-0"
+            }`}
+          >
             {profiles.length > 0 ? (
-              profiles.map((profile, index) => (
+              profiles.map((profile) => (
                 <div
                   key={profile.id}
                   className={`flex items-center gap-4 p-5 border-b border-border/20 hover:bg-secondary/20 transition-all duration-300 animate-slide-up ${
-                    index < 3 ? "bg-gradient-to-r from-primary/5 to-transparent" : ""
+                    profile.rank <= 3 ? "bg-gradient-to-r from-primary/5 to-transparent" : ""
                   }`}
-                  style={{ animationDelay: `${index * 0.05}s` }}
                 >
-                  <div
-                    className={`w-8 text-center font-bold text-lg ${
-                      index === 0
-                        ? "text-yellow-400"
-                        : index === 1
-                        ? "text-gray-300"
-                        : index === 2
-                        ? "text-amber-600"
-                        : ""
-                    }`}
-                  >
-                    {index + 1}
+                  <div className="w-8 text-center font-bold text-lg">
+                    {/* Link the current rank to the user's profile */}
+                    <Link href={`/profile/${profile.id}`} className="hover:underline">
+                      {profile.rank}
+                    </Link>
                   </div>
 
                   <div
                     className={`w-12 h-12 rounded-full flex items-center justify-center shadow-md ${
-                      index === 0
+                      profile.rank === 1
                         ? "bg-gradient-to-r from-yellow-500/30 to-yellow-600/30 ring-2 ring-yellow-500/30"
-                        : index === 1
+                        : profile.rank === 2
                         ? "bg-gradient-to-r from-gray-400/30 to-gray-500/30 ring-2 ring-gray-400/30"
-                        : index === 2
+                        : profile.rank === 3
                         ? "bg-gradient-to-r from-amber-600/30 to-amber-700/30 ring-2 ring-amber-600/30"
                         : "bg-gradient-to-r from-primary/20 to-purple-500/20"
                     }`}
@@ -235,13 +248,17 @@ export default function Leaderboard() {
 
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold">{profile.rating}</span>
+                          <span className="font-bold">
+                            {profile.rating.toFixed(1)}
+                          </span>
                           <RatingStars
                             initialRating={profile.rating}
                             displayOnly={false}
                             size="sm"
                             profileId={profile.id}
-                            onRate={(newRating: number) => handleRatingChange(profile, newRating)}
+                            onRate={(newRating: number) =>
+                              handleRatingChange(profile, newRating)
+                            }
                           />
                           <span className="text-xs text-muted-foreground">
                             ({profile.ratings})
@@ -261,7 +278,11 @@ export default function Leaderboard() {
                         </div>
 
                         <Link href={`/profile/${profile.id}`}>
-                          <Button variant="ghost" size="sm" className="glow-effect rounded-full px-4">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="glow-effect rounded-full px-4"
+                          >
                             View
                           </Button>
                         </Link>
@@ -277,7 +298,11 @@ export default function Leaderboard() {
                 <p className="text-muted-foreground max-w-md mx-auto">
                   We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all profiles.
                 </p>
-                <Button variant="outline" className="mt-4 glow-effect" onClick={() => setSearchTerm("")}>
+                <Button
+                  variant="outline"
+                  className="mt-4 glow-effect"
+                  onClick={() => setSearchTerm("")}
+                >
                   Show all profiles
                 </Button>
               </div>
