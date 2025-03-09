@@ -101,9 +101,10 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
           {/* Profile Card */}
           <div className="lg:col-span-1">
             <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-b from-background to-secondary/10">
-              <div className="h-32 bg-gradient-to-r from-primary/20 to-purple-500/20 relative">
-                <div className="absolute inset-0 bg-[url('/placeholder.svg?height=200&width=600')] opacity-10 bg-cover bg-center"></div>
-              </div>
+            <div className="h-32 bg-gradient-to-r from-primary/20 to-purple-500/20 relative">
+  <div className="absolute inset-0 bg-[url('/placeholder.png?height=200&width=100')] opacity-100 bg-no-repeat bg-center"></div>
+</div>
+
               <CardContent className="pt-0 relative">
                 <div className="w-24 h-24 rounded-full bg-gradient-to-r from-primary/50 to-purple-500/50 flex items-center justify-center absolute -top-12 left-6 ring-4 ring-background shadow-xl">
                   <span className="font-bold text-3xl">
@@ -146,16 +147,12 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
                     </span>
                   </div>
 
-                  <div className="p-4 border border-border/20 rounded-lg bg-secondary/10">
-                    <p className="text-sm italic">
-                      {profile.bio || "No bio available"}
-                    </p>
-                  </div>
+             
 
                   <div className="space-y-3 pt-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MapPin className="h-4 w-4 text-primary" />
-                      <span>{profile.location || "Unknown location"}</span>
+                      <span>{profile.location || "Estin"}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4 text-primary" />

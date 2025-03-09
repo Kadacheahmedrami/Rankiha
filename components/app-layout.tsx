@@ -14,7 +14,7 @@ import { Bell, LogOut, Menu, Settings, Star, TrendingUp, User } from "lucide-rea
 import Link from "next/link"
 import { useState } from "react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { signOut } from "next-auth/react"  // Import signOut from NextAuth
+import { signOut } from "next-auth/react"
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -72,7 +72,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       className="w-full justify-start gap-3"
                       onClick={() => {
                         setIsMobileMenuOpen(false)
-                        handleSignOut()  // Call sign-out on click
+                        handleSignOut()
                       }}
                     >
                       <LogOut className="h-5 w-5" />
@@ -101,18 +101,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-2">
-            {/* <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
-              <span className="sr-only">Notifications</span>
-            </Button> */}
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src="/placeholder-user.jpg" alt="@user" />
-                    <AvatarFallback>U</AvatarFallback>
+                    <AvatarFallback>
+                      {/* Updated fallback: Increased size and hover effect */}
+                      <User className="h-6 w-6 transition-transform duration-200 ease-in-out hover:scale-110" />
+                    </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
@@ -124,13 +121,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings" className="cursor-pointer">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
+                  <Link href="/leaderboard" className="cursor-pointer">
+                    <TrendingUp className="mr-2 h-4 w-4" />
+                    <span>leaderboard</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                {/* Dropdown sign-out item */}
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Sign out</span>

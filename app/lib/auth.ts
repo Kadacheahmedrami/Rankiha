@@ -1,9 +1,7 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
-
 import { NextAuthOptions, getServerSession } from "next-auth";
 import { DefaultSession } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-
 
 // Extend the NextAuth types for better TypeScript support
 declare module "next-auth" {
@@ -25,7 +23,7 @@ declare module "next-auth/jwt" {
 }
 
 // Create a single PrismaClient instance and export it for reuse
-import {prisma} from "@/prisma/prismaClient";
+import { prisma } from "@/prisma/prismaClient";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -39,12 +37,17 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      // Log everything to help debug
       console.log("SIGN IN CALLBACK TRIGGERED", { user, account });
       
       // Ensure user has an email
       if (!user.email) {
         console.log("Sign-in rejected: User has no email");
+        return false;
+      }
+
+      // Only allow sign in if the email ends with "@estin.dz"
+      if (!user.email.endsWith("@estin.dz")) {
+        console.log("Sign-in rejected: Email does not end with @estin.dz");
         return false;
       }
     
