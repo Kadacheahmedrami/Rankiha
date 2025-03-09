@@ -8,7 +8,7 @@ import { AuthProvider } from "@/components/auth-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Stellar Ranks | Social Ranking Platform",
+  title: "Rankiha",
   description: "Rate and discover top-ranked profiles in real-time",
     generator: 'v0.dev'
 }
