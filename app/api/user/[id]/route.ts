@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-
 import { prisma } from '@/prisma/prismaClient';
 
 export async function GET(
@@ -46,6 +45,23 @@ export async function GET(
       }
     });
 
+    // Fetch all comments received by this user
+    // Make the comments anonymous by only selecting the content and createdAt fields.
+    const comments = await prisma.comment.findMany({
+      where: { targetUserId: id },
+      select: {
+        content: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' }, // optional: order comments by newest first
+    });
+
+    // Format comments, converting the date to an ISO string if needed.
+    const formattedComments = comments.map((comment) => ({
+      content: comment.content,
+      createdAt: comment.createdAt.toISOString(),
+    }));
+
     // Build the profile object matching your Profile type
     const profile = {
       id: user.id,
@@ -53,11 +69,12 @@ export async function GET(
       username,
       bio: '', // No bio field in your schema; default to empty string
       location: '', // No location field; default to empty string
-      joinedDate: user.createdAt.toISOString(), // Format as needed
+      joinedDate: user.createdAt.toISOString(),
       rating: parseFloat(averageRating.toFixed(1)),
       totalRatings,
       ratingDistribution: distribution,
       image: user.image || '',
+      comments: formattedComments, // Anonymous comments added here
     };
 
     return NextResponse.json(profile);

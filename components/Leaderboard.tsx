@@ -3,12 +3,13 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Search } from "lucide-react"
+import { MessageSquare, Search } from "lucide-react"
 import Link from "next/link"
 import RatingStars from "@/components/rating-stars"
 import { useEffect, useState, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { toast } from "react-hot-toast"
+import CommentModal from "@/components/comment-modal"
 
 // Extended Profile interface to include 'rank'
 interface Profile {
@@ -32,6 +33,10 @@ export default function Leaderboard() {
   const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const { data: session } = useSession()
+
+  // Comment modal state
+  const [isCommentModalOpen, setIsCommentModalOpen] = useState<boolean>(false)
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null)
 
   // Fetch leaderboard data with pagination metadata
   const fetchLeaderboard = async (): Promise<void> => {
@@ -95,6 +100,52 @@ export default function Leaderboard() {
     }
   }
 
+  // Open comment modal for a profile
+  const handleOpenCommentModal = (profile: Profile) => {
+    // Check if the user is trying to comment on themselves
+    if (session?.user?.id === profile.id) {
+      toast.error("You cannot comment on your own profile")
+      return
+    }
+
+    if (!session?.user) {
+      toast.error("Please sign in to leave a comment")
+      return
+    }
+
+    setSelectedProfile(profile)
+    setIsCommentModalOpen(true)
+  }
+
+  // Handle comment submission
+  const handleCommentSubmit = async (comment: string): Promise<boolean> => {
+    if (!selectedProfile || !comment.trim()) return false
+
+    try {
+      const response = await fetch("/api/comment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetUserId: selectedProfile.id,
+          content: comment,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        toast.error(errorData.error || "Failed to post comment")
+        return false
+      }
+
+      toast.success("Comment posted successfully")
+      return true
+    } catch (error) {
+      console.error("Error posting comment:", error)
+      toast.error("Failed to post comment")
+      return false
+    }
+  }
+
   // Debounced fetch when searchTerm changes; reset page to 1 on search change.
   useEffect(() => {
     setPage(1)
@@ -113,10 +164,7 @@ export default function Leaderboard() {
   useEffect(() => {
     const handleScroll = () => {
       if (isFetchingMore) return
-      if (
-        window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 &&
-        page < totalPages
-      ) {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 && page < totalPages) {
         setIsFetchingMore(true)
         setPage((prev) => prev + 1)
       }
@@ -124,8 +172,6 @@ export default function Leaderboard() {
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
   }, [isFetchingMore, page, totalPages])
-
-  // Removed real-time Pusher subscription for normal CRUD operation
 
   // Optional: Focus the search input after a short delay on mount.
   useEffect(() => {
@@ -231,10 +277,10 @@ export default function Leaderboard() {
                       profile.rank === 1
                         ? "bg-gradient-to-r from-yellow-500/30 to-yellow-600/30 ring-2 ring-yellow-500/30"
                         : profile.rank === 2
-                        ? "bg-gradient-to-r from-gray-400/30 to-gray-500/30 ring-2 ring-gray-400/30"
-                        : profile.rank === 3
-                        ? "bg-gradient-to-r from-amber-600/30 to-amber-700/30 ring-2 ring-amber-600/30"
-                        : "bg-gradient-to-r from-primary/20 to-purple-500/20"
+                          ? "bg-gradient-to-r from-gray-400/30 to-gray-500/30 ring-2 ring-gray-400/30"
+                          : profile.rank === 3
+                            ? "bg-gradient-to-r from-amber-600/30 to-amber-700/30 ring-2 ring-amber-600/30"
+                            : "bg-gradient-to-r from-primary/20 to-purple-500/20"
                     }`}
                   >
                     <span className="font-bold text-lg">{profile.name.charAt(0)}</span>
@@ -267,11 +313,28 @@ export default function Leaderboard() {
                           {profile.change === "same" && <span className="text-muted-foreground text-sm">-</span>}
                         </div>
 
-                        <Link href={`/profile/${profile.id}`} className="sm:ml-auto">
-                          <Button variant="ghost" size="sm" className="glow-effect bg-white bg-opacity-10 rounded-full px-4 w-full sm:w-auto">
-                            View
+                        <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 rounded-full bg-secondary/40 hover:bg-secondary/60 border-primary/20 hover:border-primary/40 text-xs sm:text-sm transition-all duration-200 hover:scale-105 group"
+                            onClick={() => handleOpenCommentModal(profile)}
+                          >
+                            <MessageSquare className="h-3.5 w-3.5 text-primary group-hover:text-primary/80" />
+                            <span className="hidden sm:inline">Comment</span>
+                            <span className="sm:hidden">Comment</span>
                           </Button>
-                        </Link>
+
+                          <Link href={`/profile/${profile.id}`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="glow-effect bg-white bg-opacity-10 rounded-full px-4 w-full sm:w-auto"
+                            >
+                              View
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -282,7 +345,8 @@ export default function Leaderboard() {
                 <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="text-xl font-medium mb-2">No profiles found</h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all profiles.
+                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all
+                  profiles.
                 </p>
                 <Button variant="outline" className="mt-4 glow-effect" onClick={() => setSearchTerm("")}>
                   Show all profiles
@@ -292,6 +356,17 @@ export default function Leaderboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Comment Modal */}
+      {selectedProfile && (
+        <CommentModal
+          isOpen={isCommentModalOpen}
+          onClose={() => setIsCommentModalOpen(false)}
+          profile={selectedProfile}
+          onSubmit={handleCommentSubmit}
+        />
+      )}
     </div>
   )
 }
+
