@@ -4,11 +4,9 @@ import Link from "next/link"
 import { ArrowRight, Star } from "lucide-react"
 import { getServerAuthSession } from "@/app/lib/auth"
 
-
-export default async function  Home() {
+export default async function Home() {
   const session = await getServerAuthSession()
-
-
+  const names = ["Ramy", "Fady C#", "Boudjm3a", "azouaou"]
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -18,16 +16,22 @@ export default async function  Home() {
             <Star className="h-6 w-6 text-primary animate-pulse-glow" />
             <span className="text-xl font-bold tracking-tight glow-text">Stellar Ranks</span>
           </div>
-          <Link href="/auth/signin">
-            <Button className="glow-button">
-              Sign In
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
+          {/* Only show Sign In button when there is no active session */}
+          {!session && (
+            <Link href="/auth/signin">
+              <Button className="glow-button">
+                Sign In
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          )}
         </div>
       </header>
 
       <main className="flex-1 container pt-24 pb-12">
+        {/* Prominent Disclaimer Banner */}
+    
+
         <div className="grid gap-6 lg:grid-cols-2 lg:gap-12 items-center">
           <div className="space-y-4 animate-fade-in">
             <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl glow-text">
@@ -43,13 +47,13 @@ export default async function  Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-4 animate-slide-up" style={{ animationDelay: "0.4s" }}>
               <Link href="/auth/signin">
-                <Button size="lg" className="glow-button">
+                <Button size="lg" className="glow-button w-full">
                   Get Started
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/leaderboard">
-                <Button variant="outline" size="lg" className="glow-effect">
+                <Button variant="outline" size="lg" className="glow-effect w-full">
                   View Leaderboard
                 </Button>
               </Link>
@@ -101,7 +105,9 @@ export default async function  Home() {
             </Card>
           </div>
         </div>
-
+        <div className="mt-32 rounded-md border border-purple-500  px-4 py-3 text-center text-yellow-300 font-medium">
+          Note: Your rank will remain anonymous, and only users with an <strong>@estin.dz</strong> email address are accepted in our system.
+        </div>
         <div className="mt-24 space-y-12">
           <h2 className="text-3xl font-bold text-center glow-text">How It Works</h2>
 
@@ -164,4 +170,3 @@ export default async function  Home() {
     </div>
   )
 }
-
