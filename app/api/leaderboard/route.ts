@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerAuthSession } from '@/app/lib/auth';
 import { prisma } from '@/prisma/prismaClient';
+import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 
 // Define a type for the raw rank query result
 type RankResult = { higherCount: string }[];
@@ -124,6 +125,12 @@ export async function POST(req: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    
+    // Block access if the authenticated user's email is blacklisted
+    if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
+      return NextResponse.json({ error: "Niik moukk" }, { status: 403 });
+    }
+    
     const currentUser = session.user;
 
     const body = await req.json();
@@ -186,6 +193,12 @@ export async function PATCH(req: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    
+    // Block access if the authenticated user's email is blacklisted
+    if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+    
     const currentUser = session.user;
 
     const body = await req.json();

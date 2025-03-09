@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/prisma/prismaClient';
+import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 
 export async function GET(
   req: NextRequest,
@@ -22,6 +23,11 @@ export async function GET(
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Block access if the user's email is blacklisted
+    if (user.email && BLACKLISTED_EMAILS.includes(user.email)) {
+      return NextResponse.json({ error: 'Niik moukk' }, { status: 403 });
     }
 
     // Derive username from email (e.g. "john.doe" from "john.doe@example.com")

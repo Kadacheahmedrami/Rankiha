@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Pusher from 'pusher';
 import { getServerAuthSession } from '@/app/lib/auth';
 import { prisma } from '@/prisma/prismaClient';
+import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 
 // Initialize Pusher (using your environment variables)
 const pusher = new Pusher({
@@ -24,6 +25,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const session = await getServerAuthSession();
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Block access if the authenticated user's email is blacklisted
+    if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
+      return NextResponse.json({ error: "Niik moukk" }, { status: 403 });
     }
 
     // Upsert the authenticated user to guarantee they exist in the DB
