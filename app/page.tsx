@@ -7,7 +7,7 @@ import { getServerAuthSession } from "@/app/lib/auth"
 export default async function Home() {
   const session = await getServerAuthSession()
   const names = ["Ramy", "Fady C#", "Boudjm3a", "chemssou"]
-
+  
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-border/40 backdrop-blur-sm bg-background/80 fixed w-full z-10">
@@ -79,7 +79,7 @@ export default async function Home() {
                         <span className="font-bold text-lg">{i}</span>
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-medium">Profile Name {names[i]}</h4>
+                        <h4 className="font-medium">{names[i]}</h4>
                         <div className="flex items-center gap-1 text-yellow-400">
                           {Array(5)
                             .fill(0)
