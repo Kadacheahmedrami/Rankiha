@@ -46,7 +46,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <div className="border-b border-border/40 p-4">
                     <div className="flex items-center gap-2">
                       <Star className="h-6 w-6 text-primary" />
-                      <span className="text-xl font-bold tracking-tight">Stellar Ranks</span>
+                      <span className="text-xl font-bold tracking-tight">Rankiha</span>
                     </div>
                   </div>
                   <nav className="flex-1 p-4">
@@ -85,7 +85,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             <Link href="/leaderboard" className="flex items-center gap-2">
               <Star className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold tracking-tight hidden md:inline">Stellar Ranks</span>
+              <span className="text-xl font-bold tracking-tight hidden md:inline">Rankiha</span>
             </Link>
           </div>
 
@@ -101,11 +101,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="relative">
+            {/* <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
               <span className="sr-only">Notifications</span>
-            </Button>
+            </Button> */}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
