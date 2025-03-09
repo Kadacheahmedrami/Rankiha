@@ -1,17 +1,7 @@
 // File: app/api/leaderboard/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import Pusher from 'pusher';
 import { getServerAuthSession } from '@/app/lib/auth';
 import { prisma } from '@/prisma/prismaClient';
-
-// Initialize Pusher
-const pusher = new Pusher({
-  appId: process.env.PUSHER_APP_ID || '',
-  key: process.env.PUSHER_KEY || '',
-  secret: process.env.PUSHER_SECRET || '',
-  cluster: process.env.PUSHER_CLUSTER || 'eu',
-  useTLS: true
-});
 
 // Define a type for the raw rank query result
 type RankResult = { higherCount: string }[];
@@ -176,14 +166,6 @@ export async function POST(req: NextRequest) {
     // Compute current rank for the rated user
     const rank = await getUserRank(averageRating, userRatings.length);
     
-    // Trigger Pusher event for real-time updates
-    await pusher.trigger("leaderboard", "rating-updated", {
-      userId: ratedUserId,
-      averageRating: averageRatingRounded,
-      ratingsCount: userRatings.length,
-      rank,
-    });
-    
     return NextResponse.json({ 
       success: true, 
       rating,
@@ -253,7 +235,7 @@ export async function PATCH(req: NextRequest) {
       return results;
     });
     
-    // Calculate and broadcast updates for each affected user
+    // Calculate updates for each affected user
     const affectedUserIds = [...new Set(ratings.map((r) => r.ratedUserId))];
     
     const updates = await Promise.all(
@@ -266,14 +248,6 @@ export async function PATCH(req: NextRequest) {
         const averageRating = userRatings.length > 0 ? totalRating / userRatings.length : 0;
         const averageRatingRounded = parseFloat(averageRating.toFixed(1));
         const rank = await getUserRank(averageRating, userRatings.length);
-        
-        // Trigger Pusher event for each updated user
-        await pusher.trigger("leaderboard", "rating-updated", {
-          userId,
-          averageRating: averageRatingRounded,
-          ratingsCount: userRatings.length,
-          rank,
-        });
         
         return {
           userId,

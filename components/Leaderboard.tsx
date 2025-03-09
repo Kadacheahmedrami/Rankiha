@@ -3,13 +3,12 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { TrendingUp, Search } from "lucide-react"
+import { Search } from "lucide-react"
 import Link from "next/link"
 import RatingStars from "@/components/rating-stars"
 import { useEffect, useState, useRef } from "react"
-import Pusher from "pusher-js"
 import { useSession } from "next-auth/react"
-import { toast } from "react-hot-toast"  // Importing toast from react-hot-toast
+import { toast } from "react-hot-toast"
 
 // Extended Profile interface to include 'rank'
 interface Profile {
@@ -126,23 +125,7 @@ export default function Leaderboard() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [isFetchingMore, page, totalPages])
 
-  // Subscribe to Pusher for real-time updates.
-  useEffect(() => {
-    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-    })
-    const channel = pusher.subscribe("leaderboard")
-    channel.bind("rating-updated", (updateData: { rating: number; profileId: string; rank?: number }) => {
-      console.log("Rating update received:", updateData)
-      // Optionally, reset to page 1 on update:
-      setPage(1)
-      fetchLeaderboard()
-    })
-    return () => {
-      channel.unbind_all()
-      channel.unsubscribe()
-    }
-  }, [])
+  // Removed real-time Pusher subscription for normal CRUD operation
 
   // Optional: Focus the search input after a short delay on mount.
   useEffect(() => {
