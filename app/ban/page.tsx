@@ -1,7 +1,14 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Ban, Mail, AlertTriangle } from "lucide-react"
+import { Mail, AlertTriangle } from "lucide-react"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 
 export default function BannedPage() {
   return (
@@ -10,10 +17,16 @@ export default function BannedPage() {
         <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 to-red-600/10 rounded-xl"></div>
 
         <CardHeader className="relative space-y-1 pb-6">
-          <div className="mx-auto bg-red-500/20 w-16 h-16 rounded-full flex items-center justify-center mb-2">
-            <Ban className="h-8 w-8 text-red-500" />
+          <div className="mx-auto flex  bg-red-500/20 w-16 h-16 rounded-full  items-center justify-center mb-2">
+            <span
+              role="img"
+              aria-label="middle finger"
+              className=" text-red-500 relative  text-[45px]"
+            >🖕</span>
           </div>
-          <CardTitle className="text-2xl font-bold text-center">Account Suspended</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">
+            Account Suspended
+          </CardTitle>
           <CardDescription className="text-center text-base">
             Your account has been banned for policy violations
           </CardDescription>
@@ -26,8 +39,7 @@ export default function BannedPage() {
               <div>
                 <h3 className="font-medium mb-1">Reason for suspension:</h3>
                 <p className="text-sm text-muted-foreground">
-                  Your account has been suspended due to malpractice that violates our platform's terms of service and
-                  community guidelines.
+                  Your account has been suspended due to malpractice that violates our platform's terms of service and community guidelines.
                 </p>
               </div>
             </div>
@@ -60,4 +72,3 @@ export default function BannedPage() {
     </div>
   )
 }
-
