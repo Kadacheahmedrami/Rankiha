@@ -1,5 +1,5 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { PrismaClient } from "@prisma/client";
+
 import { NextAuthOptions, getServerSession } from "next-auth";
 import { DefaultSession } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
@@ -25,7 +25,7 @@ declare module "next-auth/jwt" {
 }
 
 // Create a single PrismaClient instance and export it for reuse
-const prisma = new PrismaClient();
+import {prisma} from "@/prisma/prismaClient";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
