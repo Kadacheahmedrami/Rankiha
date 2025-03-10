@@ -6,8 +6,8 @@ export async function GET(req: NextRequest) {
   try {
     // Get pagination parameters
     const searchParams = req.nextUrl.searchParams;
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get("limit") || "20");
+    const page = parseInt(searchParams.get("page") || "1");
     const skip = (page - 1) * limit;
 
     // Fetch paginated comments with their target user information
@@ -17,15 +17,15 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
+            email: true,
+          },
+        },
       },
       orderBy: {
-        createdAt: 'desc' // Most recent comments first
+        createdAt: "desc", // Most recent comments first
       },
       skip,
-      take: limit
+      take: limit,
     });
 
     // Get total count of comments
@@ -33,15 +33,15 @@ export async function GET(req: NextRequest) {
     const totalPages = Math.ceil(totalCount / limit);
 
     // Format the comments according to the interface
-    const formattedComments = comments.map(comment => ({
+    const formattedComments = comments.map((comment) => ({
       id: comment.id,
       content: comment.content,
       createdAt: comment.createdAt.toISOString(),
       targetUser: {
         id: comment.targetUser.id,
         name: comment.targetUser.name,
-        email: comment.targetUser.email
-      }
+        email: comment.targetUser.email,
+      },
     }));
 
     return NextResponse.json({
@@ -54,7 +54,9 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error fetching comments:", error);
-    return NextResponse.json({ error: "Failed to fetch comments" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch comments" },
+      { status: 500 }
+    );
   }
 }

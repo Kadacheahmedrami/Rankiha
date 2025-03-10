@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/prisma/prismaClient';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/prisma/prismaClient";
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 
 export async function GET(
@@ -21,17 +21,15 @@ export async function GET(
       },
     });
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
+    if (!user)
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // Block access if the user's email is blacklisted
-    if (user.email && BLACKLISTED_EMAILS.includes(user.email)) {
-      return NextResponse.json({ error: 'Niik moukk' }, { status: 403 });
-    }
+    if (user.email && BLACKLISTED_EMAILS.includes(user.email))
+      return NextResponse.json({ error: "Niik moukk" }, { status: 403 });
 
     // Derive username from email (e.g. "john.doe" from "john.doe@example.com")
-    const username = user.email ? user.email.split('@')[0] : '';
+    const username = user.email ? user.email.split("@")[0] : "";
 
     // Fetch all ratings received by this user
     const ratings = await prisma.rating.findMany({
@@ -40,7 +38,8 @@ export async function GET(
 
     const totalRatings = ratings.length;
     const totalRatingValue = ratings.reduce((sum, r) => sum + r.value, 0);
-    const averageRating = totalRatings > 0 ? totalRatingValue / totalRatings : 0;
+    const averageRating =
+      totalRatings > 0 ? totalRatingValue / totalRatings : 0;
 
     // Calculate the rating distribution:
     // Index 0: 5-star, Index 1: 4-star, ... Index 4: 1-star.
@@ -56,10 +55,11 @@ export async function GET(
     const comments = await prisma.comment.findMany({
       where: { targetUserId: id },
       select: {
+        id: true,
         content: true,
         createdAt: true,
       },
-      orderBy: { createdAt: 'desc' }, // optional: order comments by newest first
+      orderBy: { createdAt: "desc" }, // optional: order comments by newest first
     });
 
     // Format comments, converting the date to an ISO string if needed.
@@ -71,21 +71,23 @@ export async function GET(
     // Build the profile object matching your Profile type
     const profile = {
       id: user.id,
-      name: user.name || '',
+      name: user.name || "",
       username,
-      bio: '', // No bio field in your schema; default to empty string
-      location: '', // No location field; default to empty string
+      bio: "", // No bio field in your schema; default to empty string
+      location: "", // No location field; default to empty string
       joinedDate: user.createdAt.toISOString(),
       rating: parseFloat(averageRating.toFixed(1)),
       totalRatings,
       ratingDistribution: distribution,
-      image: user.image || '',
+      image: user.image || "",
       comments: formattedComments, // Anonymous comments added here
     };
 
     return NextResponse.json(profile);
   } catch (error) {
-    console.error('Error fetching user profile:', error);
-    return NextResponse.json({ error: 'Failed to fetch user profile' }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch user profile" },
+      { status: 500 }
+    );
   }
 }

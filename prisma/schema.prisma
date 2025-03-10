@@ -32,6 +32,8 @@ model User {
   // New relations for the comment system
   commentsGiven    Comment[]  @relation("CommentsGiven") // Comments this user has authored
   commentsReceived Comment[]  @relation("CommentsReceived") // Comments received by this user
+
+  reportsMade CommentReport[] @relation("ReportsMade")
 }
 
 // The Account model stores external authentication account details (e.g., OAuth accounts)
@@ -86,7 +88,7 @@ model Rating {
 
   userId        String   // ID of the user who provided the rating
   user          User     @relation("RatedBy", fields: [userId], references: [id], onDelete: Cascade) // Relationship to the rater
-  
+
   ratedUserId   String   // ID of the user who received the rating
   ratedUser     User     @relation("RatedUser", fields: [ratedUserId], references: [id], onDelete: Cascade) // Relationship to the recipient
 
@@ -100,6 +102,7 @@ model Comment {
   content       String   // The content of the comment
   createdAt     DateTime @default(now()) // Timestamp for when the comment was created
   updatedAt     DateTime @updatedAt // Automatically updated timestamp when the comment is modified
+  visible       Boolean    @default(true)
 
   // The user who authored the comment
   authorId      String
@@ -108,4 +111,22 @@ model Comment {
   // The user who received the comment (e.g., on their profile)
   targetUserId  String
   targetUser    User     @relation("CommentsReceived", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  reports CommentReport[]
+}
+
+// The CommentReport model represents reports submitted by users for inappropriate comments
+model CommentReport {
+  id            String   @id @default(cuid()) // Unique identifier for the report
+  createdAt     DateTime @default(now()) // Timestamp when the report was created
+
+  // The user who reported the comment
+  reporterUserId String
+  reporter       User     @relation("ReportsMade", fields: [reporterUserId], references: [id], onDelete: Cascade)
+
+  // The comment that was reported
+  commentId      String
+  comment        Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([reporterUserId, commentId]) // Prevent duplicate reports from the same user for the same comment
 }

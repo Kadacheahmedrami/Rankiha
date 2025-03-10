@@ -15,7 +15,5 @@ export default async function Page({ params }: { params: { id: string } }) {
     redirect("/auth/signin");
   }
 
-  console.log(params.id);
-
   return <ProfileComponent id={params.id} />;
 }
