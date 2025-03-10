@@ -264,7 +264,7 @@ export default function Leaderboard() {
           <div className={`transition-opacity duration-300 ${profiles.length ? "opacity-100" : "opacity-0"}`}>
             {profiles.length > 0 ? (
               profiles.map((profile) => (
-                <Link href={`/profile/${profile.id}`}
+                <div 
                   key={profile.id}
                   className={`flex items-center gap-4 p-5 border-b border-border/20 hover:bg-secondary/20 transition-all duration-300 animate-slide-up ${
                     profile.rank <= 3 ? "bg-gradient-to-r from-primary/5 to-transparent" : ""
@@ -342,7 +342,7 @@ export default function Leaderboard() {
                       </div>
                     </div>
                   </div>
-                </Link>
+                </div>
               ))
             ) : (
               <div className="p-12 text-center">
