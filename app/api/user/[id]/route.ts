@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/prisma/prismaClient';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/prisma/prismaClient";
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 
 export async function GET(
@@ -42,7 +42,8 @@ export async function GET(
 
     const totalRatings = ratings.length;
     const totalRatingValue = ratings.reduce((sum, r) => sum + r.value, 0);
-    const averageRating = totalRatings > 0 ? totalRatingValue / totalRatings : 0;
+    const averageRating =
+      totalRatings > 0 ? totalRatingValue / totalRatings : 0;
 
     // Calculate the rating distribution:
     // Index 0: 5-star, Index 1: 4-star, ... Index 4: 1-star.
@@ -58,6 +59,7 @@ export async function GET(
     const comments = await prisma.comment.findMany({
       where: { targetUserId: id },
       select: {
+        id: true,
         content: true,
         createdAt: true,
       },
@@ -73,7 +75,7 @@ export async function GET(
     // Build the profile object matching your Profile type.
     const profile = {
       id: user.id,
-      name: user.name || '',
+      name: user.name || "",
       username,
       bio: '', // Default value as no bio field exists.
       location: '', // Default value as no location field exists.
@@ -87,7 +89,9 @@ export async function GET(
 
     return NextResponse.json(profile);
   } catch (error) {
-    console.error('Error fetching user profile:', error);
-    return NextResponse.json({ error: 'Failed to fetch user profile' }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch user profile" },
+      { status: 500 }
+    );
   }
 }

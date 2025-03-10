@@ -1,18 +1,18 @@
 // File: app/api/rating/route.ts
 
-import { NextRequest, NextResponse } from 'next/server';
-import Pusher from 'pusher';
-import { getServerAuthSession } from '@/app/lib/auth';
-import { prisma } from '@/prisma/prismaClient';
+import { NextRequest, NextResponse } from "next/server";
+import Pusher from "pusher";
+import { getServerAuthSession } from "@/app/lib/auth";
+import { prisma } from "@/prisma/prismaClient";
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 
 // Initialize Pusher (using your environment variables)
 const pusher = new Pusher({
-  appId: process.env.PUSHER_APP_ID || '',
-  key: process.env.PUSHER_KEY || '',
-  secret: process.env.PUSHER_SECRET || '',
-  cluster: process.env.PUSHER_CLUSTER || 'eu',
-  useTLS: true
+  appId: process.env.PUSHER_APP_ID || "",
+  key: process.env.PUSHER_KEY || "",
+  secret: process.env.PUSHER_SECRET || "",
+  cluster: process.env.PUSHER_CLUSTER || "eu",
+  useTLS: true,
 });
 
 interface RatingRequestBody {
@@ -49,13 +49,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const body = (await req.json()) as RatingRequestBody;
     const { ratedUserId, value } = body;
 
-    if (!ratedUserId || typeof value !== 'number' || value < 1 || value > 5) {
-      return NextResponse.json({ error: "Invalid rating data" }, { status: 400 });
+    if (!ratedUserId || typeof value !== "number" || value < 1 || value > 5) {
+      return NextResponse.json(
+        { error: "Invalid rating data" },
+        { status: 400 }
+      );
     }
 
     // Prevent users from rating themselves
     if (session.user.id === ratedUserId) {
-      return NextResponse.json({ error: "You cannot rate yourself" }, { status: 400 });
+      return NextResponse.json(
+        { error: "You cannot rate yourself" },
+        { status: 400 }
+      );
     }
 
     // Upsert the rating using the composite unique key [userId, ratedUserId]
@@ -76,14 +82,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Calculate new average rating for the rated user
     const userRatings = await prisma.rating.findMany({
-      where: { ratedUserId }
+      where: { ratedUserId },
     });
     const totalRating = userRatings.reduce((sum, r) => sum + r.value, 0);
     const averageRating = totalRating / userRatings.length;
     const averageRatingRounded = parseFloat(averageRating.toFixed(1));
 
     // Trigger a Pusher event for real-time leaderboard updates
-    await pusher.trigger('leaderboard', 'rating-updated', {
+    await pusher.trigger("leaderboard", "rating-updated", {
       userId: ratedUserId,
       averageRating: averageRatingRounded,
       ratingsCount: userRatings.length,
@@ -93,10 +99,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       success: true,
       rating,
       averageRating: averageRatingRounded,
-      ratingsCount: userRatings.length
+      ratingsCount: userRatings.length,
     });
   } catch (error: unknown) {
-    console.error("Error creating/updating rating:", error);
-    return NextResponse.json({ error: "Failed to save rating" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to save rating" },
+      { status: 500 }
+    );
   }
 }

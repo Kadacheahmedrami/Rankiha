@@ -1,16 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
-import Pusher from 'pusher';
-import { getServerAuthSession } from '@/app/lib/auth';
-import { prisma } from '@/prisma/prismaClient';
+import { NextRequest, NextResponse } from "next/server";
+import Pusher from "pusher";
+import { getServerAuthSession } from "@/app/lib/auth";
+import { prisma } from "@/prisma/prismaClient";
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 
 // Initialize Pusher (using your environment variables)
 const pusher = new Pusher({
-  appId: process.env.PUSHER_APP_ID || '',
-  key: process.env.PUSHER_KEY || '',
-  secret: process.env.PUSHER_SECRET || '',
-  cluster: process.env.PUSHER_CLUSTER || 'eu',
-  useTLS: true
+  appId: process.env.PUSHER_APP_ID || "",
+  key: process.env.PUSHER_KEY || "",
+  secret: process.env.PUSHER_SECRET || "",
+  cluster: process.env.PUSHER_CLUSTER || "eu",
+  useTLS: true,
 });
 
 // Define the expected structure of the comment request body
@@ -29,7 +29,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Block access if the authenticated user's email is blacklisted
     if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
-      return NextResponse.json({ error: "Niik moukk && swwa ta3 mouk" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Niik moukk && swwa ta3 mouk" },
+        { status: 403 }
+      );
     }
 
     // Upsert the authenticated user to guarantee they exist in the DB
@@ -48,13 +51,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const body = (await req.json()) as CommentRequestBody;
     const { targetUserId, content } = body;
 
-    if (!targetUserId || !content || typeof content !== 'string' || content.trim() === '') {
-      return NextResponse.json({ error: "Invalid comment data" }, { status: 400 });
+    if (
+      !targetUserId ||
+      !content ||
+      typeof content !== "string" ||
+      content.trim() === ""
+    ) {
+      return NextResponse.json(
+        { error: "Invalid comment data" },
+        { status: 400 }
+      );
     }
 
     // Optionally, prevent users from commenting on themselves
     if (session.user.id === targetUserId) {
-      return NextResponse.json({ error: "You cannot comment on yourself" }, { status: 400 });
+      return NextResponse.json(
+        { error: "You cannot comment on yourself" },
+        { status: 400 }
+      );
     }
 
     // Create the comment in the database
@@ -71,11 +85,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
 
     // Trigger a Pusher event for real-time comment updates (optional)
-    await pusher.trigger('comments', 'comment-created', { comment });
+    await pusher.trigger("comments", "comment-created", { comment });
 
     return NextResponse.json({ success: true, comment });
   } catch (error: unknown) {
-    console.error("Error creating comment:", error);
-    return NextResponse.json({ error: "Failed to save comment" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to save comment" },
+      { status: 500 }
+    );
   }
 }

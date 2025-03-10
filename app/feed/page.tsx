@@ -11,7 +11,7 @@ export default async function CommentFeedPage() {
   if (session?.user?.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
     redirect("/ban");
   }
-  
+
   if (!session?.user?.email) {
     redirect("/auth/signin");
   }
