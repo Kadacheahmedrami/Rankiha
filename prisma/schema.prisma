@@ -1,0 +1,111 @@
+// Generate the Prisma client for JavaScript/TypeScript usage
+generator client {
+  provider = "prisma-client-js" // Prisma Client will be used to interact with the database
+}
+
+// Define the datasource using PostgreSQL with the connection URL from an environment variable
+datasource db {
+  provider = "postgresql" // PostgreSQL is the chosen database provider
+  url      = env("DATABASE_URL") // The database URL is stored in an environment variable for security
+}
+
+// The User model represents the application users
+model User {
+  id             String     @id @default(cuid()) // Unique identifier, auto-generated with cuid()
+  email          String     @unique // Unique email address for each user
+  name           String?    // Optional name field
+  emailVerified  DateTime?  // Optional field to store when the email was verified
+  image          String?    // Optional URL to the user's profile image
+  googleId       String?    @unique // Optional unique Google ID for authentication
+  createdAt      DateTime   @default(now()) // Timestamp for when the user was created; defaults to the current time
+  updatedAt      DateTime   @updatedAt // Automatically updated timestamp when the record is modified
+  visible        Boolean    @default(false)
+
+  // Relations for NextAuth authentication
+  accounts       Account[]  // A user can have multiple authentication accounts
+  sessions       Session[]  // A user can have multiple active sessions
+
+  // Application-specific relations for the rating system
+  ratings         Rating[]   @relation("RatedBy") // Ratings that the user has given to others
+  receivedRatings Rating[]   @relation("RatedUser") // Ratings that the user has received from others
+
+  // New relations for the comment system
+  commentsGiven    Comment[]  @relation("CommentsGiven") // Comments this user has authored
+  commentsReceived Comment[]  @relation("CommentsReceived") // Comments received by this user
+}
+
+// The Account model stores external authentication account details (e.g., OAuth accounts)
+model Account {
+  id                 String   @id @default(cuid()) // Unique identifier for each account
+  userId             String   // Foreign key referencing the User model
+  type               String   // Type of account (e.g., "oauth")
+  provider           String   // Name of the authentication provider (e.g., Google, Facebook)
+  providerAccountId  String   // Unique identifier provided by the authentication provider
+  refresh_token      String?  // Optional refresh token for obtaining new access tokens
+  access_token       String?  // Optional access token for API calls
+  expires_at         Int?     // Optional expiration time for the tokens
+  token_type         String?  // Optional token type (e.g., "Bearer")
+  scope              String?  // Optional scope of the access request
+  id_token           String?  // Optional ID token used for authentication
+  session_state      String?  // Optional session state
+
+  // Define the relationship with the User model
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Composite unique constraint to ensure the combination of provider and providerAccountId is unique
+  @@unique([provider, providerAccountId])
+}
+
+// The Session model represents user sessions for authentication purposes
+model Session {
+  id           String   @id @default(cuid()) // Unique session identifier
+  sessionToken String   @unique // Unique token for the session
+  userId       String   // Foreign key referencing the User model
+  expires      DateTime // Session expiration date and time
+
+  // Define the relationship with the User model
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// The VerificationToken model is used for actions like email verification
+model VerificationToken {
+  identifier String // Identifier, typically the user's email or similar
+  token      String   @unique // Unique token used for verification
+  expires    DateTime // Expiration date and time for the token
+
+  // Composite unique constraint to ensure each identifier-token combination is unique
+  @@unique([identifier, token])
+}
+
+// The Rating model represents a rating given by one user to another
+model Rating {
+  id            String   @id @default(cuid()) // Unique identifier for the rating
+  value         Int      // Numeric rating value (e.g., on a scale from 1 to 5)
+  createdAt     DateTime @default(now()) // Timestamp when the rating was created
+  updatedAt     DateTime @updatedAt // Automatically updated timestamp when the rating changes
+
+  userId        String   // ID of the user who provided the rating
+  user          User     @relation("RatedBy", fields: [userId], references: [id], onDelete: Cascade) // Relationship to the rater
+  
+  ratedUserId   String   // ID of the user who received the rating
+  ratedUser     User     @relation("RatedUser", fields: [ratedUserId], references: [id], onDelete: Cascade) // Relationship to the recipient
+
+  // Ensure a user can only rate another user once by enforcing a unique combination of userId and ratedUserId
+  @@unique([userId, ratedUserId])
+}
+
+// The Comment model represents a comment left by one user for another
+model Comment {
+  id            String   @id @default(cuid()) // Unique identifier for the comment
+  content       String   // The content of the comment
+  createdAt     DateTime @default(now()) // Timestamp for when the comment was created
+  updatedAt     DateTime @updatedAt // Automatically updated timestamp when the comment is modified
+
+  // The user who authored the comment
+  authorId      String
+  author        User     @relation("CommentsGiven", fields: [authorId], references: [id], onDelete: Cascade)
+
+  // The user who received the comment (e.g., on their profile)
+  targetUserId  String
+  targetUser    User     @relation("CommentsReceived", fields: [targetUserId], references: [id], onDelete: Cascade)
+}
