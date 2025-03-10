@@ -9,7 +9,7 @@ export async function GET(
   try {
     const { id } = params;
 
-    // Fetch the user from the database
+    // Fetch the user from the database, including the "visible" field.
     const user = await prisma.user.findUnique({
       where: { id },
       select: {
@@ -18,20 +18,24 @@ export async function GET(
         email: true,
         image: true,
         createdAt: true,
+        visible: true,
       },
     });
 
-    if (!user)
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    // If no user is found or the user is deactivated (visible: false), return 404.
+    if (!user || !user.visible) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
-    // Block access if the user's email is blacklisted
-    if (user.email && BLACKLISTED_EMAILS.includes(user.email))
-      return NextResponse.json({ error: "Niik moukk" }, { status: 403 });
+    // Block access if the user's email is blacklisted.
+    if (user.email && BLACKLISTED_EMAILS.includes(user.email)) {
+      return NextResponse.json({ error: 'Niik moukk' }, { status: 403 });
+    }
 
-    // Derive username from email (e.g. "john.doe" from "john.doe@example.com")
-    const username = user.email ? user.email.split("@")[0] : "";
+    // Derive username from email (e.g. "john.doe" from "john.doe@example.com").
+    const username = user.email ? user.email.split('@')[0] : '';
 
-    // Fetch all ratings received by this user
+    // Fetch all ratings received by this user.
     const ratings = await prisma.rating.findMany({
       where: { ratedUserId: id },
     });
@@ -50,8 +54,8 @@ export async function GET(
       }
     });
 
-    // Fetch all comments received by this user
-    // Make the comments anonymous by only selecting the content and createdAt fields.
+    // Fetch all comments received by this user.
+    // Only select the content and createdAt fields for anonymity.
     const comments = await prisma.comment.findMany({
       where: { targetUserId: id },
       select: {
@@ -59,28 +63,28 @@ export async function GET(
         content: true,
         createdAt: true,
       },
-      orderBy: { createdAt: "desc" }, // optional: order comments by newest first
+      orderBy: { createdAt: 'desc' },
     });
 
-    // Format comments, converting the date to an ISO string if needed.
+    // Format comments, converting createdAt dates to ISO strings.
     const formattedComments = comments.map((comment) => ({
       content: comment.content,
       createdAt: comment.createdAt.toISOString(),
     }));
 
-    // Build the profile object matching your Profile type
+    // Build the profile object matching your Profile type.
     const profile = {
       id: user.id,
       name: user.name || "",
       username,
-      bio: "", // No bio field in your schema; default to empty string
-      location: "", // No location field; default to empty string
+      bio: '', // Default value as no bio field exists.
+      location: '', // Default value as no location field exists.
       joinedDate: user.createdAt.toISOString(),
       rating: parseFloat(averageRating.toFixed(1)),
       totalRatings,
       ratingDistribution: distribution,
-      image: user.image || "",
-      comments: formattedComments, // Anonymous comments added here
+      image: user.image || '',
+      comments: formattedComments,
     };
 
     return NextResponse.json(profile);

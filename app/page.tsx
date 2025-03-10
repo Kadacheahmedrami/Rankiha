@@ -22,7 +22,7 @@ export default async function Home() {
           <div className="flex items-center gap-2">
             <Star className="h-6 w-6 text-primary animate-pulse-glow" />
             <span className="text-xl font-bold tracking-tight glow-text">
-              Stellar Ranks
+              Rankiha
             </span>
           </div>
           {/* Only show Sign In button when there is no active session */}
@@ -158,10 +158,10 @@ export default async function Home() {
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Star className="h-5 w-5 text-primary" />
-            <span className="font-semibold">Stellar Ranks</span>
+            <span className="font-semibold">Rankiha</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Stellar Ranks. All rights reserved.
+            © {new Date().getFullYear()} Rankiha. All rights reserved.
           </p>
           <div className="flex gap-4">
             <Link href="/terms" className="text-sm text-muted-foreground hover:text-foreground">
