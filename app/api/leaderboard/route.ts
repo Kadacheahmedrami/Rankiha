@@ -1,4 +1,3 @@
-// File: app/api/leaderboard/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerAuthSession } from '@/app/lib/auth';
 import { prisma } from '@/prisma/prismaClient';
@@ -37,31 +36,31 @@ export async function GET(req: NextRequest) {
     const skip = (page - 1) * limit;
 
     // Fetch paginated users with their average rating
-        const users = await prisma.$queryRaw<any[]>`
-        SELECT 
-          u.id, 
-          u.name, 
-          u.email, 
-          u.image,
-          COALESCE(AVG(r.value)::FLOAT, 0) as rating,
-          COUNT(r.id) as "ratingsCount",
-          u."createdAt"
-        FROM "User" u
-        LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
-        WHERE 
-          u.visible = true AND
-          (u.name ILIKE ${`%${searchTerm}%`} OR 
-          u.email ILIKE ${`%${searchTerm}%`})
-        GROUP BY u.id
-        ORDER BY rating DESC, "ratingsCount" DESC
-        LIMIT ${limit} OFFSET ${skip}
-      `;
-    console.log("Fetched users:", users);
+    const users = await prisma.$queryRaw<any[]>`
+      SELECT 
+        u.id, 
+        u.name, 
+        u.email, 
+        u.image,
+        COALESCE(AVG(r.value)::FLOAT, 0) as rating,
+        COUNT(r.id) as "ratingsCount",
+        u."createdAt"
+      FROM "User" u
+      LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
+      WHERE 
+        u.visible = true AND
+        (u.name ILIKE ${`%${searchTerm}%`} OR 
+         u.email ILIKE ${`%${searchTerm}%`})
+      GROUP BY u.id
+      ORDER BY rating DESC, "ratingsCount" DESC
+      LIMIT ${limit} OFFSET ${skip}
+    `;
+
     // Get total count of users matching the search criteria
     const countResult = await prisma.$queryRaw<{ count: string }[]>`
       SELECT COUNT(*) as count
       FROM "User" u
-      WHERE u.visible = true AND u.name ILIKE ${`%${searchTerm}%`} OR u.email ILIKE ${`%${searchTerm}%`}
+      WHERE u.visible = true AND (u.name ILIKE ${`%${searchTerm}%`} OR u.email ILIKE ${`%${searchTerm}%`})
     `;
     const totalCount = parseInt(countResult[0].count);
     const totalPages = Math.ceil(totalCount / limit);
@@ -104,6 +103,41 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    // If the current user is authenticated, compute their rating and rank independently
+    const session = await getServerAuthSession();
+    let currentUserData = null;
+    if (session?.user?.id) {
+      // Fetch all ratings received by the current user
+      const currentUserRatings = await prisma.rating.findMany({
+        where: { ratedUserId: session.user.id },
+      });
+      const totalRating = currentUserRatings.reduce((sum, r) => sum + r.value, 0);
+      const ratingsCount = currentUserRatings.length;
+      const averageRating = ratingsCount > 0 ? totalRating / ratingsCount : 0;
+      const averageRatingRounded = parseFloat(averageRating.toFixed(1));
+      const rank = await getUserRank(averageRating, ratingsCount);
+      
+      // Get current user's basic profile info
+      const currentUserProfile = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+        },
+      });
+      currentUserData = {
+        id: currentUserProfile?.id,
+        name: currentUserProfile?.name,
+        username: currentUserProfile?.email.split('@')[0],
+        rating: averageRatingRounded,
+        ratings: ratingsCount,
+        rank,
+        image: currentUserProfile?.image,
+      };
+    }
+
     return NextResponse.json({
       data: leaderboard,
       pagination: {
@@ -112,6 +146,7 @@ export async function GET(req: NextRequest) {
         limit,
         totalPages,
       },
+      currentUser: currentUserData,
     });
   } catch (error) {
     console.error("Error fetching leaderboard:", error);
@@ -133,7 +168,6 @@ export async function POST(req: NextRequest) {
     }
     
     const currentUser = session.user;
-
     const body = await req.json();
     const { ratedUserId, value } = body;
     
@@ -201,7 +235,6 @@ export async function PATCH(req: NextRequest) {
     }
     
     const currentUser = session.user;
-
     const body = await req.json();
     const { ratings } = body;
     
@@ -227,7 +260,6 @@ export async function PATCH(req: NextRequest) {
     // Use a transaction to update all ratings
     const updatedRatings = await prisma.$transaction(async (tx) => {
       const results = [];
-      
       for (const rating of ratings) {
         const result = await tx.rating.upsert({
           where: {
@@ -245,7 +277,6 @@ export async function PATCH(req: NextRequest) {
         });
         results.push(result);
       }
-      
       return results;
     });
     
@@ -257,12 +288,10 @@ export async function PATCH(req: NextRequest) {
         const userRatings = await prisma.rating.findMany({
           where: { ratedUserId: userId },
         });
-        
         const totalRating = userRatings.reduce((sum, r) => sum + r.value, 0);
         const averageRating = userRatings.length > 0 ? totalRating / userRatings.length : 0;
         const averageRatingRounded = parseFloat(averageRating.toFixed(1));
         const rank = await getUserRank(averageRating, userRatings.length);
-        
         return {
           userId,
           averageRating: averageRatingRounded,

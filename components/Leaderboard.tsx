@@ -27,6 +27,7 @@ export default function Leaderboard() {
   const [searchTerm, setSearchTerm] = useState<string>("")
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false)
   const [profiles, setProfiles] = useState<Profile[]>([])
+  const [currentUserData, setCurrentUserData] = useState<Profile | null>(null)
   const [page, setPage] = useState<number>(1)
   const [limit] = useState<number>(20)
   const [totalPages, setTotalPages] = useState<number>(1)
@@ -60,6 +61,13 @@ export default function Leaderboard() {
       }
       setTotalPages(json.pagination.totalPages)
       setIsFetchingMore(false)
+      
+      // Set current user data from the API response if available
+      if (json.currentUser) {
+        setCurrentUserData(json.currentUser)
+      } else {
+        setCurrentUserData(null)
+      }
     } catch (error) {
       console.error("Error fetching leaderboard:", error)
       setIsFetchingMore(false)
@@ -181,9 +189,6 @@ export default function Leaderboard() {
     return () => clearTimeout(timer)
   }, [])
 
-  // Get current user's profile from the fetched leaderboard data.
-  const currentUserProfile = session?.user?.id ? profiles.find((p) => p.id === session.user!.id) : null
-
   return (
     <div className="flex flex-col gap-2 px-2 sm:px-0">
       <div className="flex flex-col gap-3 mb-4">
@@ -199,9 +204,7 @@ export default function Leaderboard() {
           <div className="relative bg-secondary/30 backdrop-blur-sm rounded-xl border border-primary/30 shadow-xl overflow-hidden">
             <div className="absolute inset-y-0 left-3 sm:left-5 flex items-center pointer-events-none">
               <Search
-                className={`h-5 w-5 sm:h-6 sm:w-6 transition-colors duration-300 ${
-                  isSearchFocused ? "text-primary" : "text-primary/70"
-                }`}
+                className={`h-5 w-5 sm:h-6 sm:w-6 transition-colors duration-300 ${isSearchFocused ? "text-primary" : "text-primary/70"}`}
               />
             </div>
             <Input
@@ -225,7 +228,7 @@ export default function Leaderboard() {
                 </Button>
               )}
               <div className="h-8 sm:h-10 p-2 py-2 md:py-6 font-bold text-[32px] rounded-lg bg-primary flex items-center gap-1 sm:gap-2 shadow-md">
-                <div>#{currentUserProfile ? currentUserProfile.rank : "N/A"}</div>
+                <div>#{currentUserData ? currentUserData.rank : "N/A"}</div>
               </div>
             </div>
           </div>
@@ -257,10 +260,11 @@ export default function Leaderboard() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          
           <div className={`transition-opacity duration-300 ${profiles.length ? "opacity-100" : "opacity-0"}`}>
             {profiles.length > 0 ? (
               profiles.map((profile) => (
-                <div
+                <Link href={`/profile/${profile.id}`}
                   key={profile.id}
                   className={`flex items-center gap-4 p-5 border-b border-border/20 hover:bg-secondary/20 transition-all duration-300 animate-slide-up ${
                     profile.rank <= 3 ? "bg-gradient-to-r from-primary/5 to-transparent" : ""
@@ -338,15 +342,14 @@ export default function Leaderboard() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))
             ) : (
               <div className="p-12 text-center">
                 <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="text-xl font-medium mb-2">No profiles found</h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all
-                  profiles.
+                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all profiles.
                 </p>
                 <Button variant="outline" className="mt-4 glow-effect" onClick={() => setSearchTerm("")}>
                   Show all profiles
@@ -369,4 +372,3 @@ export default function Leaderboard() {
     </div>
   )
 }
-
