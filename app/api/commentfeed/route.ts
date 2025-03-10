@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma/prismaClient";
-
+//merge
 // GET: Fetch comments with pagination and target user information
 export async function GET(req: NextRequest) {
   try {
