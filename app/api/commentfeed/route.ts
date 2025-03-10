@@ -10,9 +10,10 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const skip = (page - 1) * limit;
 
-    // Fetch paginated comments where both author and target user are visible
+    // Fetch paginated comments where the comment is visible and both author and target user are visible
     const comments = await prisma.comment.findMany({
       where: {
+        visible: true,
         author: { visible: true },
         targetUser: { visible: true },
       },
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest) {
     // Get total count of visible comments
     const totalCount = await prisma.comment.count({
       where: {
+        visible: true,
         author: { visible: true },
         targetUser: { visible: true },
       },

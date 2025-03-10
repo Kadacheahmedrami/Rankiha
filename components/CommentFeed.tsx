@@ -65,16 +65,17 @@ export default function CommentFeed() {
     }
   }
 
-  // Handle reporting a comment
+  // Handle reporting a comment with a loading toast
   const handleReportComment = async (commentId: string) => {
     if (!session?.user?.id) {
       toast.error("You must be logged in to report a comment")
       return
     }
 
+    let loadingToastId: string | undefined
     try {
       setReportingCommentId(commentId)
-
+      loadingToastId = toast.loading("Reporting comment...")
       const response = await fetch("/api/report", {
         method: "POST",
         headers: {
@@ -92,9 +93,11 @@ export default function CommentFeed() {
         throw new Error(errorData.message || "Failed to report comment")
       }
 
+      toast.dismiss(loadingToastId)
       toast.success("Comment reported successfully")
     } catch (error) {
       console.error("Error reporting comment:", error)
+      if (loadingToastId) toast.dismiss(loadingToastId)
       toast.error("Failed to report comment. Please try again.")
     } finally {
       setReportingCommentId(null)
@@ -127,7 +130,7 @@ export default function CommentFeed() {
           setPage((prev) => prev + 1)
         }
       },
-      { threshold: 0.1 },
+      { threshold: 0.1 }
     )
 
     const currentLoaderRef = loaderRef.current
@@ -290,4 +293,3 @@ export default function CommentFeed() {
     </div>
   )
 }
-
