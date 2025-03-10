@@ -70,7 +70,7 @@ export const authOptions: NextAuthOptions = {
                 image: user.image || existingUser.image,
                 name: user.name || existingUser.name,
                 emailVerified: new Date(),
-                visible : true,
+                visible: true,
               },
             }); 
             
@@ -104,7 +104,34 @@ export const authOptions: NextAuthOptions = {
           return true;
         }
     
-        console.log("No existing user found, allowing normal sign-up");
+        // Create new user with visible set to true instead of using default adapter behavior
+        console.log("No existing user found, creating new user with visible=true");
+        
+        // Manually create the user
+        await prisma.user.create({
+          data: {
+            email: user.email,
+            name: user.name,
+            image: user.image,
+            emailVerified: new Date(),
+            visible: true,
+            googleId: account?.providerAccountId,
+            accounts: account?.provider ? {
+              create: {
+                type: account.type,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                ...(account.refresh_token ? { refresh_token: account.refresh_token } : {}),
+                ...(account.access_token ? { access_token: account.access_token } : {}),
+                ...(account.expires_at ? { expires_at: account.expires_at } : {}),
+                ...(account.token_type ? { token_type: account.token_type } : {}),
+                ...(account.scope ? { scope: account.scope } : {}),
+                ...(account.id_token ? { id_token: account.id_token } : {})
+              }
+            } : undefined
+          }
+        });
+        
         return true;
       } catch (error) {
         console.error("Error during sign-in process:", error);
