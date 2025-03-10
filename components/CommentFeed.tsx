@@ -1,86 +1,79 @@
-"use client";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { MessageSquare, Flag, AlertCircle } from "lucide-react";
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import toast from "react-hot-toast";
+"use client"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { MessageSquare, Flag } from "lucide-react"
+import Link from "next/link"
+import { useEffect, useState, useRef } from "react"
+import { useSession } from "next-auth/react"
+import toast from "react-hot-toast"
 
 // Interface for Comment
 interface Comment {
-  id: string;
-  content: string;
-  createdAt: string;
+  id: string
+  content: string
+  createdAt: string
   targetUser: {
-    id: string;
-    name: string;
-    email: string;
-  };
+    id: string
+    name: string
+    email: string
+  }
 }
 
 export default function CommentFeed() {
-  const { data: session } = useSession();
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [page, setPage] = useState<number>(1);
-  const [limit] = useState<number>(20);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false);
-  const [reportingCommentId, setReportingCommentId] = useState<string | null>(
-    null
-  );
+  const { data: session } = useSession()
+  const [comments, setComments] = useState<Comment[]>([])
+  const [page, setPage] = useState<number>(1)
+  const [limit] = useState<number>(20)
+  const [totalPages, setTotalPages] = useState<number>(1)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false)
+  const [reportingCommentId, setReportingCommentId] = useState<string | null>(null)
+
+  const loaderRef = useRef<HTMLDivElement>(null)
 
   // Fetch comments feed with pagination
   const fetchCommentsFeed = async (): Promise<void> => {
     try {
-      setIsLoading(true);
-      const queryParams = new URLSearchParams();
-      queryParams.append("page", page.toString());
-      queryParams.append("limit", limit.toString());
-      const query = "?" + queryParams.toString();
+      setIsLoading(true)
+      const queryParams = new URLSearchParams()
+      queryParams.append("page", page.toString())
+      queryParams.append("limit", limit.toString())
+      const query = "?" + queryParams.toString()
 
-      const res = await fetch(`/api/commentfeed${query}`);
+      const res = await fetch(`/api/commentfeed${query}`)
       if (!res.ok) {
-        console.error("Error fetching comments:", res.statusText);
-        setIsLoading(false);
-        return;
+        console.error("Error fetching comments:", res.statusText)
+        setIsLoading(false)
+        return
       }
 
-      const json = await res.json();
+      const json = await res.json()
 
       // If we're on page 1, replace the comments; otherwise, append new results
       if (page === 1) {
-        setComments(json.data);
+        setComments(json.data)
       } else {
-        setComments((prev) => [...prev, ...json.data]);
+        setComments((prev) => [...prev, ...json.data])
       }
 
-      setTotalPages(json.pagination.totalPages);
-      setIsFetchingMore(false);
-      setIsLoading(false);
+      setTotalPages(json.pagination.totalPages)
+      setIsFetchingMore(false)
+      setIsLoading(false)
     } catch (error) {
-      console.error("Error fetching comments:", error);
-      setIsFetchingMore(false);
-      setIsLoading(false);
+      console.error("Error fetching comments:", error)
+      setIsFetchingMore(false)
+      setIsLoading(false)
     }
-  };
+  }
 
   // Handle reporting a comment
   const handleReportComment = async (commentId: string) => {
     if (!session?.user?.id) {
-      toast.error("You must be logged in to report a comment");
-      return;
+      toast.error("You must be logged in to report a comment")
+      return
     }
 
     try {
-      setReportingCommentId(commentId);
+      setReportingCommentId(commentId)
 
       const response = await fetch("/api/report", {
         method: "POST",
@@ -92,37 +85,62 @@ export default function CommentFeed() {
           commentId: commentId,
           timestamp: new Date().toISOString(),
         }),
-      });
+      })
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to report comment");
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to report comment")
       }
 
-      toast.success("Comment reported successfully");
+      toast.success("Comment reported successfully")
     } catch (error) {
-      console.error("Error reporting comment:", error);
-      toast.error("Failed to report comment. Please try again.");
+      console.error("Error reporting comment:", error)
+      toast.error("Failed to report comment. Please try again.")
     } finally {
-      setReportingCommentId(null);
+      setReportingCommentId(null)
     }
-  };
+  }
 
   // Format date to a more readable format
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = new Date(dateString)
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    });
-  };
+    })
+  }
 
   // Fetch comments feed on initial load and when page changes
   useEffect(() => {
-    fetchCommentsFeed();
-  }, [page]);
+    fetchCommentsFeed()
+  }, [page])
+
+  // Set up intersection observer for infinite scrolling
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries
+        if (entry.isIntersecting && !isLoading && !isFetchingMore && page < totalPages) {
+          setIsFetchingMore(true)
+          setPage((prev) => prev + 1)
+        }
+      },
+      { threshold: 0.1 },
+    )
+
+    const currentLoaderRef = loaderRef.current
+    if (currentLoaderRef) {
+      observer.observe(currentLoaderRef)
+    }
+
+    return () => {
+      if (currentLoaderRef) {
+        observer.unobserve(currentLoaderRef)
+      }
+    }
+  }, [isLoading, isFetchingMore, page, totalPages])
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -184,9 +202,7 @@ export default function CommentFeed() {
                           </Link>
                         </div>
                         <div className="flex items-center gap-4">
-                          <span className="text-sm text-muted-foreground">
-                            {formatDate(comment.createdAt)}
-                          </span>
+                          <span className="text-sm text-muted-foreground">{formatDate(comment.createdAt)}</span>
                           <button
                             onClick={() => handleReportComment(comment.id)}
                             disabled={reportingCommentId === comment.id}
@@ -223,9 +239,7 @@ export default function CommentFeed() {
                       </div>
 
                       <div className="bg-secondary/20 p-4 rounded-lg border border-border/10">
-                        <p className="text-base sm:text-lg">
-                          {comment.content}
-                        </p>
+                        <p className="text-base sm:text-lg">{comment.content}</p>
                       </div>
                     </div>
                   </div>
@@ -233,44 +247,32 @@ export default function CommentFeed() {
               ))}
 
               {page < totalPages && (
-                <div className="p-6 text-center">
-                  <Button
-                    variant="outline"
-                    className="px-8 py-2 rounded-full bg-secondary/40 hover:bg-secondary/60 border-primary/20 hover:border-primary/40 transition-all duration-200"
-                    onClick={() => {
-                      setIsFetchingMore(true);
-                      setPage((prev) => prev + 1);
-                    }}
-                    disabled={isFetchingMore}
-                  >
-                    {isFetchingMore ? (
-                      <span className="flex items-center gap-2">
-                        <svg
-                          className="animate-spin h-4 w-4 text-primary"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Loading more...
-                      </span>
-                    ) : (
-                      "Load more comments"
-                    )}
-                  </Button>
+                <div ref={loaderRef} className="p-6 text-center">
+                  {isFetchingMore && (
+                    <div className="flex items-center justify-center gap-2">
+                      <svg
+                        className="animate-spin h-5 w-5 text-primary"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      <span>Loading more comments...</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -279,13 +281,13 @@ export default function CommentFeed() {
               <MessageSquare className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
               <h3 className="text-xl font-medium mb-2">No comments yet</h3>
               <p className="text-muted-foreground max-w-md mx-auto">
-                There are no comments to display at the moment. Check back
-                later!
+                There are no comments to display at the moment. Check back later!
               </p>
             </div>
           )}
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }
+
