@@ -207,9 +207,10 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
                     Disable Account
                   </DialogTitle>
                   <DialogDescription className="mt-2 text-lg">
-                    Are you sure you want to disable your account? You will be signed out and your profile, ratings,
-                    and comments will be hidden until you sign in again.
-                  </DialogDescription>
+  Are you sure you want to disable your account? You will be signed out immediately, and your profile, ratings, and comments will be hidden.  
+  If you do not sign in within the next 3 days, all your data will be permanently deleted.
+</DialogDescription>
+
                 </DialogHeader>
                 <DialogFooter className="mt-4 flex justify-end gap-4">
                   <Button variant="ghost" onClick={() => setShowDisableModal(false)}>
