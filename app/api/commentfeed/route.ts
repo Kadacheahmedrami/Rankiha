@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma/prismaClient";
-//merge
+
 // GET: Fetch comments with pagination and target user information
 export async function GET(req: NextRequest) {
   try {
@@ -10,10 +10,21 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const skip = (page - 1) * limit;
 
-    // Fetch paginated comments with their target user information
+    // Fetch paginated comments where both author and target user are visible
     const comments = await prisma.comment.findMany({
+      where: {
+        author: { visible: true },
+        targetUser: { visible: true },
+      },
       include: {
         targetUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        author: {
           select: {
             id: true,
             name: true,
@@ -28,8 +39,14 @@ export async function GET(req: NextRequest) {
       take: limit,
     });
 
-    // Get total count of comments
-    const totalCount = await prisma.comment.count();
+    // Get total count of visible comments
+    const totalCount = await prisma.comment.count({
+      where: {
+        author: { visible: true },
+        targetUser: { visible: true },
+      },
+    });
+
     const totalPages = Math.ceil(totalCount / limit);
 
     // Format the comments according to the interface
@@ -41,6 +58,11 @@ export async function GET(req: NextRequest) {
         id: comment.targetUser.id,
         name: comment.targetUser.name,
         email: comment.targetUser.email,
+      },
+      author: {
+        id: comment.author.id,
+        name: comment.author.name,
+        email: comment.author.email,
       },
     }));
 
@@ -54,6 +76,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
+    console.error("Error fetching comments:", error);
     return NextResponse.json(
       { error: "Failed to fetch comments" },
       { status: 500 }
