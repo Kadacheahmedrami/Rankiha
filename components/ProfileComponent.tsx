@@ -2,12 +2,39 @@
 
 import { useEffect, useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Calendar, MapPin, Star, Award, Send, MessageSquare } from "lucide-react"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Star,
+  Award,
+  Send,
+  MessageSquare,
+  Lock,
+} from "lucide-react"
 import Link from "next/link"
 import AppLayout from "@/components/app-layout"
-import { useSession } from "next-auth/react"
+import { useSession, signOut } from "next-auth/react"
 import { Textarea } from "@/components/ui/textarea"
+import toast from "react-hot-toast"
+
+// Import Dialog components from your UI library
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 // Define the profile type including anonymous comments
 export type Profile = {
@@ -37,6 +64,8 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
   const [error, setError] = useState<string | null>(null)
   const [commentText, setCommentText] = useState<string>("")
   const [commentLoading, setCommentLoading] = useState<boolean>(false)
+  const [disableLoading, setDisableLoading] = useState<boolean>(false)
+  const [showDisableModal, setShowDisableModal] = useState<boolean>(false)
   const MAX_COMMENT_LENGTH = 500
 
   // Get current session to check if the profile is being viewed by its owner
@@ -102,6 +131,27 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
     }
   }
 
+  // Handle account disable after confirmation from the modal
+  const handleConfirmDisable = async () => {
+    setDisableLoading(true)
+    try {
+      const res = await fetch("/api/user/deactivate", {
+        method: "POST",
+      })
+      if (!res.ok) {
+        throw new Error("Failed to disable account")
+      }
+      // If disabling succeeded, sign out the user.
+      signOut({ callbackUrl: "/" })
+    } catch (err) {
+      console.error(err)
+      toast.error("Disabling account failed. Please try again.")
+    } finally {
+      setDisableLoading(false)
+      setShowDisableModal(false)
+    }
+  }
+
   if (loading)
     return (
       <AppLayout>
@@ -119,30 +169,71 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
   const safeRating = profile.rating ?? 0
   const safeTotalRatings = profile.totalRatings ?? 0
   const safeDistribution =
-    profile.ratingDistribution && profile.ratingDistribution.length === 5 ? profile.ratingDistribution : [0, 0, 0, 0, 0]
+    profile.ratingDistribution && profile.ratingDistribution.length === 5
+      ? profile.ratingDistribution
+      : [0, 0, 0, 0, 0]
 
   return (
     <AppLayout>
       <div className="flex flex-col gap-8 p-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <Link href="/leaderboard">
-              <Button variant="ghost" size="sm" className="gap-1 rounded-full">
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-            </Link>
-            <h1 className="text-3xl font-bold tracking-tight glow-text bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
-              Profile Page
-            </h1>
-          </div>
-          <p className="text-lg">Welcome, {profile.name || "User"}!</p>
+        <div className="flex items-center gap-3">
+          <Link href="/leaderboard">
+            <Button variant="ghost" size="sm" className="gap-1 rounded-full">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </Link>
+          <h1 className="text-3xl font-bold tracking-tight glow-text bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
+            Profile Page
+          </h1>
+          {/* Disable Account Button (only for own profile) */}
+          {isOwnProfile && (
+            <Dialog open={showDisableModal} onOpenChange={setShowDisableModal}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="ml-auto flex items-center gap-2"
+                  onClick={() => setShowDisableModal(true)}
+                  disabled={disableLoading}
+                >
+                  <Lock className="h-4 w-4" />
+                  {disableLoading ? "Disabling..." : "Disable Account"}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-background shadow-xl rounded-lg p-6">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
+                    Disable Account
+                  </DialogTitle>
+                  <DialogDescription className="mt-2 text-lg">
+                    Are you sure you want to disable your account? You will be signed out and your profile, ratings,
+                    and comments will be hidden until you sign in again.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="mt-4 flex justify-end gap-4">
+                  <Button variant="ghost" onClick={() => setShowDisableModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleConfirmDisable}
+                    disabled={disableLoading}
+                    className="flex items-center gap-2"
+                  >
+                    {disableLoading ? "Disabling..." : "Confirm Disable"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
+        <p className="text-lg">Welcome, {profile.name || "User"}!</p>
 
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Profile Card */}
           <div className="lg:col-span-1">
-            <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-b from-background to-secondary/10">
+            <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-b from-background to-secondary/10 relative">
               <div className="h-32 bg-gradient-to-r from-primary/20 to-purple-500/20 relative">
                 <div className="absolute inset-0 bg-[url('/placeholder.png?height=200&width=100')] opacity-100 bg-no-repeat bg-center"></div>
               </div>
@@ -169,7 +260,9 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
                           <Star
                             key={i}
                             className={`h-5 w-5 ${
-                              i < Math.floor(safeRating) ? "text-yellow-400 fill-current" : "text-muted-foreground"
+                              i < Math.floor(safeRating)
+                                ? "text-yellow-400 fill-current"
+                                : "text-muted-foreground"
                             }`}
                           />
                         ))}
@@ -201,7 +294,9 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
                   Rating Overview
                 </CardTitle>
                 <CardDescription>
-                  {safeTotalRatings > 0 ? `Based on ${safeTotalRatings} ratings` : "No ratings yet"}
+                  {safeTotalRatings > 0
+                    ? `Based on ${safeTotalRatings} ratings`
+                    : "No ratings yet"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -223,12 +318,12 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
                                   rating === 5
                                     ? "bg-gradient-to-r from-primary to-purple-500"
                                     : rating === 4
-                                      ? "bg-gradient-to-r from-blue-400 to-blue-500"
-                                      : rating === 3
-                                        ? "bg-gradient-to-r from-green-400 to-green-500"
-                                        : rating === 2
-                                          ? "bg-gradient-to-r from-yellow-400 to-yellow-500"
-                                          : "bg-gradient-to-r from-red-400 to-red-500"
+                                    ? "bg-gradient-to-r from-blue-400 to-blue-500"
+                                    : rating === 3
+                                    ? "bg-gradient-to-r from-green-400 to-green-500"
+                                    : rating === 2
+                                    ? "bg-gradient-to-r from-yellow-400 to-yellow-500"
+                                    : "bg-gradient-to-r from-red-400 to-red-500"
                                 }`}
                                 style={{
                                   width: `${(count / safeTotalRatings) * 100}%`,
@@ -338,4 +433,3 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
     </AppLayout>
   )
 }
-
