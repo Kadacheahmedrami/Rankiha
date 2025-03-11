@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Bell, LogOut, Menu, MessageCircle, Settings, Star, TrendingUp, User } from "lucide-react"
+import { Bell, LogOut, Menu, MessageCircle, Settings, Star, TrendingUp, User, Calendar } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -23,9 +23,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Leaderboard", href: "/leaderboard", icon: <TrendingUp className="h-5 w-5" /> },
     { name: "Profile", href: "/profile", icon: <User className="h-5 w-5" /> },
     { name: "Feed", href: "/feed", icon: <MessageCircle className="h-5 w-5" /> },
+    { name: "Events", href: "/events", icon: <Calendar className="h-5 w-5" /> },
   ]
 
-  // Function to sign the user out and redirect to the home page.
   const handleSignOut = () => {
     signOut({ callbackUrl: "/" })
   }
@@ -67,7 +67,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </ul>
                   </nav>
                   <div className="border-t border-border/40 p-4">
-                    {/* Mobile sign-out button */}
                     <Button
                       variant="ghost"
                       className="w-full justify-start gap-3"
@@ -108,7 +107,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <Avatar className="h-8 w-8">
                     <AvatarImage src="/placeholder-user.jpg" alt="@user" />
                     <AvatarFallback>
-                      {/* Updated fallback: Increased size and hover effect */}
                       <User className="h-6 w-6 transition-transform duration-200 ease-in-out hover:scale-110" />
                     </AvatarFallback>
                   </Avatar>
@@ -124,13 +122,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <DropdownMenuItem asChild>
                   <Link href="/leaderboard" className="cursor-pointer">
                     <TrendingUp className="mr-2 h-4 w-4" />
-                    <span>leaderboard</span>
+                    <span>Leaderboard</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/feed" className="cursor-pointer">
                     <MessageCircle className="mr-2 h-4 w-4" />
-                    <span>feed</span>
+                    <span>Feed</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/events" className="cursor-pointer">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    <span>Events</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
