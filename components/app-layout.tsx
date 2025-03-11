@@ -61,10 +61,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
           <div className="border-b hidden md:block border-border/40 p-4">
-                    <div className="flex items-center gap-2">
-                      <Star className="h-6 w-6 text-primary" />
-                      <span className="text-xl font-bold tracking-tight">Rankiha</span>
-                    </div>
+              
                   </div>
             {/* Back Button for Profile Page (Mobile Only) */}
             {isProfilePage ? (
@@ -89,8 +86,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <div className="flex flex-col h-full">
                     <div className="border-b border-border/40 p-4">
                       <div className="flex items-center gap-2">
-                        <Star className="h-6 w-6 text-primary" />
-                        <span className="text-xl font-bold tracking-tight">Rankiha</span>
+                  
+                   
                       </div>
                     </div>
                     <nav className="flex-1 p-4">
@@ -168,7 +165,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
                   <Link href="/profile" className="cursor-pointer">
-                    <User className="mx-2 h-4 w-4" />
+                    <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </Link>
                 </DropdownMenuItem>
