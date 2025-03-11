@@ -98,19 +98,11 @@ async function setSecurityHeaders(response: NextResponse): Promise<NextResponse>
 }
 
 /**
- * Encrypt the response payload.
- */
-function encryptResponse(data: any): { encryptedData: string } {
-  const jsonString = JSON.stringify(data);
-  const encryptedData = encrypt(jsonString);
-  return { encryptedData };
-}
-
-/**
  * GET: Fetch leaderboard data with pagination metadata.
  */
 export async function GET(req: NextRequest) {
   try {
+    // Run security middleware.
     const secCheck = await securityMiddleware(req);
     if (secCheck) return secCheck;
     
@@ -172,7 +164,7 @@ export async function GET(req: NextRequest) {
       if (previousRank < currentRank) change = "down";
       if (previousRank > currentRank) change = "up";
       return {
-        id: hashId(user.id), // Use id hasher for security.
+        id: user.id,
         name: user.name,
         username: user.email.split('@')[0],
         rating: parseFloat(user.rating.toFixed(1)),
@@ -200,7 +192,7 @@ export async function GET(req: NextRequest) {
         select: { id: true, name: true, email: true, image: true },
       });
       currentUserData = {
-        id: hashId(currentUserProfile?.id ?? ""),
+        id: currentUserProfile?.id,
         name: currentUserProfile?.name,
         username: currentUserProfile?.email.split('@')[0],
         rating: averageRatingRounded,
@@ -216,9 +208,7 @@ export async function GET(req: NextRequest) {
       currentUser: currentUserData,
     };
     
-    // Encrypt the response payload.
-    const encryptedResponse = encryptResponse(responseData);
-    const response = NextResponse.json(encryptedResponse);
+    const response = NextResponse.json(responseData);
     return setSecurityHeaders(response);
   } catch (error) {
     console.error("Error fetching leaderboard:", error);
@@ -271,16 +261,13 @@ export async function POST(req: NextRequest) {
     const averageRatingRounded = parseFloat(averageRating.toFixed(1));
     const rank = await getUserRank(averageRating, userRatings.length);
     
-    const responseData = { 
+    const response = NextResponse.json({ 
       success: true, 
       rating,
       averageRating: averageRatingRounded,
       ratingsCount: userRatings.length,
       rank,
-    };
-    
-    const encryptedResponse = encryptResponse(responseData);
-    const response = NextResponse.json(encryptedResponse);
+    });
     return setSecurityHeaders(response);
   } catch (error) {
     console.error("Error creating/updating rating:", error);
@@ -346,13 +333,11 @@ export async function PATCH(req: NextRequest) {
       })
     );
     
-    const responseData = { 
+    const response = NextResponse.json({ 
       success: true, 
       updatedRatings,
       updates,
-    };
-    const encryptedResponse = encryptResponse(responseData);
-    const response = NextResponse.json(encryptedResponse);
+    });
     return setSecurityHeaders(response);
   } catch (error) {
     console.error("Error updating multiple ratings:", error);
