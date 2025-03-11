@@ -45,7 +45,7 @@ export default function SignInPage() {
           <div className="flex items-center gap-2">
             <Star className="h-8 w-8 text-primary animate-pulse-glow" />
             <span className="text-2xl font-bold tracking-tight glow-text">
-              Stellar Ranks
+              Rankiha
             </span>
           </div>
         </div>
