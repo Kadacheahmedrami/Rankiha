@@ -117,6 +117,7 @@ export async function GET(req: NextRequest) {
     // Fetch paginated users with their average rating.
     const users = await prisma.$queryRaw<any[]>`
       SELECT 
+        u.tag, 
         u.id, 
         u.name, 
         u.email,
@@ -168,6 +169,7 @@ export async function GET(req: NextRequest) {
         id: user.id,
         name: user.name,
         username: user.email,
+        tag : user.tag,
         rating: parseFloat(user.rating.toFixed(1)),
         ratings: parseInt(user.ratingsCount),
         change,
