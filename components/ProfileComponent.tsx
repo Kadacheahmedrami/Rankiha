@@ -177,15 +177,13 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
     <AppLayout>
       <div className="flex flex-col gap-8 p-6">
         <div className="flex items-center gap-3">
-          <Link href="/leaderboard">
+          <Link href="/leaderboard" className="hidden md:block">
             <Button variant="ghost" size="sm" className="gap-1 rounded-full">
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight glow-text bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
-            Profile Page
-          </h1>
+      
           {/* Disable Account Button (only for own profile) */}
           {isOwnProfile && (
             <Dialog open={showDisableModal} onOpenChange={setShowDisableModal}>

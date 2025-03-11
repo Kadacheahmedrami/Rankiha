@@ -202,11 +202,7 @@ export default function Leaderboard() {
 
   return (
     <div className="flex flex-col gap-2 px-2 sm:px-0">
-      <div className="flex flex-col gap-3 mb-4">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight glow-text bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
-          Leaderboard
-        </h1>
-      </div>
+   
 
       {/* Prominent Search Bar */}
       <div>
