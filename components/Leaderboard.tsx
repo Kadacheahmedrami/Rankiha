@@ -133,33 +133,44 @@ export default function Leaderboard() {
     setIsCommentModalOpen(true);
   };
 
-  // Handle comment submission
-  const handleCommentSubmit = async (comment: string): Promise<boolean> => {
-    if (!selectedProfile || !comment.trim()) return false;
+// Handle comment submission with length validation and user notification
+const handleCommentSubmit = async (comment: string): Promise<boolean> => {
+  if (!selectedProfile) return false;
 
-    try {
-      const response = await fetch("/api/comment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetUserId: selectedProfile.id,
-          content: comment,
-        }),
-      });
+  const trimmedComment = comment.trim();
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        toast.error(errorData.error || "Failed to post comment");
-        return false;
-      }
+  // Validate that the comment is between 3 and 500 characters
+  if (trimmedComment.length < 3 || trimmedComment.length > 500) {
+    toast.error(
+      "Invalid comment: Your comment must be between 3 and 500 characters. Please adjust its length accordingly."
+    );
+    return false;
+  }
 
-      toast.success("Comment posted successfully");
-      return true;
-    } catch (error) {
-      toast.error("Failed to post comment");
+  try {
+    const response = await fetch("/api/comment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        targetUserId: selectedProfile.id,
+        content: trimmedComment,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      toast.error(errorData.error || "Failed to post comment");
       return false;
     }
-  };
+
+    toast.success("Comment posted successfully");
+    return true;
+  } catch (error) {
+    toast.error("Failed to post comment");
+    return false;
+  }
+};
+
 
   // Debounced fetch when searchTerm changes; reset page to 1 on search change.
   useEffect(() => {
