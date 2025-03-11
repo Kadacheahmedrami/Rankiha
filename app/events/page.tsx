@@ -44,7 +44,7 @@ export default async function EventsPage() {
   return (
     <AppLayout>
       <div className="container py-6 md:py-10">
-        <h1 className="text-3xl font-bold tracking-tight mb-6">Events</h1>
+
         <EventsList initialEvents={events} />
       </div>
     </AppLayout>

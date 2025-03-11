@@ -124,16 +124,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </Sheet>
             )}
 
-            {!isProfilePage && (
+            { (
               <Link href="/leaderboard" className="flex items-center gap-2">
-                <Star className="h-6 w-6 text-primary" />
+                <Star className="h-6 w-6 hidden md:block text-primary" />
                 <span className="text-xl font-bold tracking-tight hidden md:inline">Rankiha</span>
               </Link>
             )}
           </div>
 
           {/* Dynamic Heading */}
-          <h1 className="text-2xl md:hidden mr-auto sm:text-3xl font-bold tracking-tight glow-text bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
+          <h1 className="text-2xl md:hidden ml-2 mr-auto sm:text-3xl font-bold tracking-tight glow-text bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
             {getTitle()}
           </h1>
 
