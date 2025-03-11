@@ -34,7 +34,7 @@ const queryParamsSchema = z.object({
 type RankResult = { higherCount: string }[];
 
 /**
- * Helper: Calculate current rank for a given average rating and ratings count.
+ * Helper: Calculate current rank for a given average rating and ratings count among visible users.
  */
 async function getUserRank(
   averageRating: number,
@@ -49,6 +49,7 @@ async function getUserRank(
         COUNT(r.id) as "ratingsCount"
       FROM "User" u
       LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
+      WHERE u.visible = true
       GROUP BY u.id
     ) as leaderboard
     WHERE leaderboard.rating > ${averageRating}
@@ -118,8 +119,7 @@ export async function GET(req: NextRequest) {
       SELECT 
         u.id, 
         u.name, 
-        u.email, 
-        u.image,
+        u.email,
         COALESCE(AVG(r.value)::FLOAT, 0) as rating,
         COUNT(r.id) as "ratingsCount",
         u."createdAt"
@@ -129,7 +129,7 @@ export async function GET(req: NextRequest) {
         u.visible = true AND
         (u.name ILIKE ${`%${searchTerm}%`} OR u.email ILIKE ${`%${searchTerm}%`})
       GROUP BY u.id
-      ORDER BY rating DESC, "ratingsCount" DESC
+      ORDER BY rating DESC, "ratingsCount" DESC, u."createdAt" ASC
       LIMIT ${limit} OFFSET ${skip}
     `;
     
@@ -149,7 +149,7 @@ export async function GET(req: NextRequest) {
         COUNT(r.id) as "ratingsCount"
       FROM "User" u
       LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
-      WHERE r."createdAt" < NOW() - INTERVAL '24 HOURS'
+      WHERE u.visible = true AND r."createdAt" < NOW() - INTERVAL '24 HOURS'
       GROUP BY u.id
       ORDER BY rating DESC, "ratingsCount" DESC
     `;
@@ -167,7 +167,7 @@ export async function GET(req: NextRequest) {
       return {
         id: user.id,
         name: user.name,
-        username: user.email.split('@')[0],
+        username: user.email,
         rating: parseFloat(user.rating.toFixed(1)),
         ratings: parseInt(user.ratingsCount),
         change,
@@ -175,31 +175,32 @@ export async function GET(req: NextRequest) {
       };
     });
     
-    // Compute current user's data if authenticated.
+    // Compute current user's data if authenticated and visible.
     const session = await getServerAuthSession();
     let currentUserData = null;
     if (session?.user?.id) {
-      const currentUserRatings = await prisma.rating.findMany({
-        where: { ratedUserId: session.user.id },
-      });
-      const totalRating = currentUserRatings.reduce((sum, r) => sum + r.value, 0);
-      const ratingsCount = currentUserRatings.length;
-      const averageRating = ratingsCount > 0 ? totalRating / ratingsCount : 0;
-      const averageRatingRounded = parseFloat(averageRating.toFixed(1));
-      const rank = await getUserRank(averageRating, ratingsCount);
       const currentUserProfile = await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { id: true, name: true, email: true, image: true },
+        select: { id: true, name: true, email: true, image: true, visible: true },
       });
-      currentUserData = {
-        id: currentUserProfile?.id,
-        name: currentUserProfile?.name,
-        username: currentUserProfile?.email.split('@')[0],
-        rating: averageRatingRounded,
-        ratings: ratingsCount,
-        rank,
- 
-      };
+      if (currentUserProfile && currentUserProfile.visible) {
+        const currentUserRatings = await prisma.rating.findMany({
+          where: { ratedUserId: session.user.id },
+        });
+        const totalRating = currentUserRatings.reduce((sum, r) => sum + r.value, 0);
+        const ratingsCount = currentUserRatings.length;
+        const averageRating = ratingsCount > 0 ? totalRating / ratingsCount : 0;
+        const averageRatingRounded = parseFloat(averageRating.toFixed(1));
+        const rank = await getUserRank(averageRating, ratingsCount);
+        currentUserData = {
+          id: currentUserProfile.id,
+          name: currentUserProfile.name,
+          username: currentUserProfile.email,
+          rating: averageRatingRounded,
+          ratings: ratingsCount,
+          rank,
+        };
+      }
     }
     
     const responseData = {
