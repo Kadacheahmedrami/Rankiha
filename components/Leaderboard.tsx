@@ -1,154 +1,126 @@
-"use client";
+"use client"
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { MessageSquare, Search } from "lucide-react";
-import Link from "next/link";
-import RatingStars from "@/components/rating-stars";
-import { useCallback, useEffect, useState, useRef } from "react";
-import { useSession } from "next-auth/react";
-import { toast } from "react-hot-toast";
-import CommentModal from "@/components/comment-modal";
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { MessageSquare, Search } from "lucide-react"
+import Link from "next/link"
+import RatingStars from "@/components/rating-stars"
+import { useEffect, useState, useRef } from "react"
+import { useSession } from "next-auth/react"
+import { toast } from "react-hot-toast"
+import CommentModal from "@/components/comment-modal"
 
 // Extended Profile interface to include 'rank'
 interface Profile {
-  id: string;
-  name: string;
-  username: string;
-  rating: number;
-  ratings: number | null;
-  change: "up" | "down" | "same";
-  image: string;
-  rank: number;
+  id: string
+  name: string
+  username: string
+  rating: number
+  ratings: number | null
+  change: "up" | "down" | "same"
+  image: string
+  rank: number
 }
 
 export default function Leaderboard() {
-  const { data: session } = useSession();
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [currentUserData, setCurrentUserData] = useState<Profile | null>(null);
-  const [page, setPage] = useState<number>(1);
-  const [limit] = useState<number>(20);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [searchTerm, setSearchTerm] = useState<string>("")
+  const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false)
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [page, setPage] = useState<number>(1)
+  const [limit] = useState<number>(20)
+  const [totalPages, setTotalPages] = useState<number>(1)
+  const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const { data: session } = useSession()
 
   // Comment modal state
-  const [isCommentModalOpen, setIsCommentModalOpen] = useState<boolean>(false);
-  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+  const [isCommentModalOpen, setIsCommentModalOpen] = useState<boolean>(false)
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null)
 
-  /**
-   * Fetch leaderboard data from the API with search, pagination and update state.
-   */
-  const fetchLeaderboard = useCallback(async () => {
+  // Fetch leaderboard data with pagination metadata
+  const fetchLeaderboard = async (): Promise<void> => {
     try {
-      const queryParams = new URLSearchParams();
-      if (searchTerm) queryParams.append("search", searchTerm);
-      queryParams.append("page", page.toString());
-      queryParams.append("limit", limit.toString());
-      const query = "?" + queryParams.toString();
-      const res = await fetch(`/api/leaderboard${query}`);
+      const queryParams = new URLSearchParams()
+      if (searchTerm) queryParams.append("search", searchTerm)
+      queryParams.append("page", page.toString())
+      queryParams.append("limit", limit.toString())
+      const query = "?" + queryParams.toString()
+      const res = await fetch(`/api/leaderboard${query}`)
       if (!res.ok) {
-        console.error("Error fetching leaderboard:", res.statusText);
-        toast.error("Error fetching leaderboard");
-        return;
+        console.error("Error fetching leaderboard:", res.statusText)
+        return
       }
-      const json = await res.json();
+      const json = await res.json()
+      // If we're on page 1, replace the leaderboard; otherwise, append new results.
       if (page === 1) {
-        setProfiles(json.data);
+        setProfiles(json.data)
       } else {
-        setProfiles(prev => [...prev, ...json.data]);
+        setProfiles((prev) => [...prev, ...json.data])
       }
-      setTotalPages(json.pagination.totalPages);
-      setIsFetchingMore(false);
-      setCurrentUserData(json.currentUser || null);
+      setTotalPages(json.pagination.totalPages)
+      setIsFetchingMore(false)
     } catch (error) {
-      console.error("Error in fetchLeaderboard:", error);
-      toast.error("An unexpected error occurred.");
-      setIsFetchingMore(false);
+      console.error("Error fetching leaderboard:", error)
+      setIsFetchingMore(false)
     }
-  }, [searchTerm, page, limit]);
+  }
 
-  // Debounce search changes and reset page to 1 when searchTerm changes.
-  useEffect(() => {
-    setPage(1);
-    const debounceTimer = setTimeout(() => {
-      fetchLeaderboard();
-    }, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [searchTerm, fetchLeaderboard]);
-
-  // Fetch leaderboard when page changes.
-  useEffect(() => {
-    fetchLeaderboard();
-  }, [page, fetchLeaderboard]);
-
-  // Infinite scrolling: Load next page when near bottom.
-  useEffect(() => {
-    const handleScroll = () => {
-      if (isFetchingMore) return;
-      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 && page < totalPages) {
-        setIsFetchingMore(true);
-        setPage(prev => prev + 1);
-      }
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [isFetchingMore, page, totalPages]);
-
-  // Focus the search input shortly after mount.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      searchInputRef.current?.focus();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Handle rating submission.
+  // Handle rating submission using the POST upsert endpoint.
   const handleRatingChange = async (profile: Profile, newRating: number): Promise<void> => {
+    // Check if the user is trying to rate themselves
     if (session?.user?.id === profile.id) {
-      toast.error("You cannot rate yourself");
-      return;
+      console.log("Attempt to rate self detected")
+      toast.error("You cannot rate yourself")
+      return
     }
+
     try {
-      const response = await fetch("/api/rating", {
+      console.log("Submitting rating for profile:", profile)
+      const response: Response = await fetch("/api/rating", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ratedUserId: profile.id, value: newRating }),
-      });
+      })
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Error rating profile:", errorData.error || response.statusText);
-        toast.error("Failed to submit rating");
-        return;
+        const errorData = await response.json()
+        console.error("Error rating profile:", errorData.error || response.statusText)
+        return
       }
-      await response.json();
-      await fetchLeaderboard();
+      const data = await response.json()
+      console.log("Rating submitted successfully:", data)
+      // Refresh the leaderboard after the rating update
+      await fetchLeaderboard()
     } catch (error: unknown) {
-      console.error("Error submitting rating:", error);
-      toast.error("Failed to submit rating");
+      if (error instanceof Error) {
+        console.error("Error submitting rating:", error.message)
+      } else {
+        console.error("An unexpected error occurred while submitting the rating.")
+      }
     }
-  };
+  }
 
-  // Open the comment modal for a given profile.
+  // Open comment modal for a profile
   const handleOpenCommentModal = (profile: Profile) => {
+    // Check if the user is trying to comment on themselves
     if (session?.user?.id === profile.id) {
-      toast.error("You cannot comment on your own profile");
-      return;
+      toast.error("You cannot comment on your own profile")
+      return
     }
-    if (!session?.user) {
-      toast.error("Please sign in to leave a comment");
-      return;
-    }
-    setSelectedProfile(profile);
-    setIsCommentModalOpen(true);
-  };
 
-  // Handle comment submission from the modal.
+    if (!session?.user) {
+      toast.error("Please sign in to leave a comment")
+      return
+    }
+
+    setSelectedProfile(profile)
+    setIsCommentModalOpen(true)
+  }
+
+  // Handle comment submission
   const handleCommentSubmit = async (comment: string): Promise<boolean> => {
-    if (!selectedProfile || !comment.trim()) return false;
+    if (!selectedProfile || !comment.trim()) return false
+
     try {
       const response = await fetch("/api/comment", {
         method: "POST",
@@ -157,19 +129,60 @@ export default function Leaderboard() {
           targetUserId: selectedProfile.id,
           content: comment,
         }),
-      });
+      })
+
       if (!response.ok) {
-        const errorData = await response.json();
-        toast.error(errorData.error || "Failed to post comment");
-        return false;
+        const errorData = await response.json()
+        toast.error(errorData.error || "Failed to post comment")
+        return false
       }
-      toast.success("Comment posted successfully");
-      return true;
+
+      toast.success("Comment posted successfully")
+      return true
     } catch (error) {
-      toast.error("Failed to post comment");
-      return false;
+      console.error("Error posting comment:", error)
+      toast.error("Failed to post comment")
+      return false
     }
-  };
+  }
+
+  // Debounced fetch when searchTerm changes; reset page to 1 on search change.
+  useEffect(() => {
+    setPage(1)
+    const delayDebounceFn = setTimeout(() => {
+      fetchLeaderboard()
+    }, 300)
+    return () => clearTimeout(delayDebounceFn)
+  }, [searchTerm])
+
+  // Re-fetch when page changes
+  useEffect(() => {
+    fetchLeaderboard()
+  }, [page])
+
+  // Infinite scroll: load next page when near bottom if available.
+  useEffect(() => {
+    const handleScroll = () => {
+      if (isFetchingMore) return
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 && page < totalPages) {
+        setIsFetchingMore(true)
+        setPage((prev) => prev + 1)
+      }
+    }
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [isFetchingMore, page, totalPages])
+
+  // Optional: Focus the search input after a short delay on mount.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchInputRef.current?.focus()
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Get current user's profile from the fetched leaderboard data.
+  const currentUserProfile = session?.user?.id ? profiles.find((p) => p.id === session.user!.id) : null
 
   return (
     <div className="flex flex-col gap-2 px-2 sm:px-0">
@@ -179,13 +192,17 @@ export default function Leaderboard() {
         </h1>
       </div>
 
-      {/* Search Bar */}
+      {/* Prominent Search Bar */}
       <div>
         <div className={`relative w-full transition-all duration-300 ${isSearchFocused ? "scale-102" : ""}`}>
           <div className="absolute inset-0 -m-1 bg-gradient-to-r from-primary/50 to-purple-500/50 rounded-2xl blur-md opacity-70 animate-pulse-glow"></div>
           <div className="relative bg-secondary/30 backdrop-blur-sm rounded-xl border border-primary/30 shadow-xl overflow-hidden">
             <div className="absolute inset-y-0 left-3 sm:left-5 flex items-center pointer-events-none">
-              <Search className={`h-5 w-5 sm:h-6 sm:w-6 transition-colors duration-300 ${isSearchFocused ? "text-primary" : "text-primary/70"}`} />
+              <Search
+                className={`h-5 w-5 sm:h-6 sm:w-6 transition-colors duration-300 ${
+                  isSearchFocused ? "text-primary" : "text-primary/70"
+                }`}
+              />
             </div>
             <Input
               ref={searchInputRef}
@@ -208,7 +225,7 @@ export default function Leaderboard() {
                 </Button>
               )}
               <div className="h-8 sm:h-10 p-2 py-2 md:py-6 font-bold text-[32px] rounded-lg bg-primary flex items-center gap-1 sm:gap-2 shadow-md">
-                <div>#{currentUserData ? currentUserData.rank : "N/A"}</div>
+                <div>#{currentUserProfile ? currentUserProfile.rank : "N/A"}</div>
               </div>
             </div>
           </div>
@@ -260,23 +277,22 @@ export default function Leaderboard() {
                       profile.rank === 1
                         ? "bg-gradient-to-r from-yellow-500/30 to-yellow-600/30 ring-2 ring-yellow-500/30"
                         : profile.rank === 2
-                        ? "bg-gradient-to-r from-gray-400/30 to-gray-500/30 ring-2 ring-gray-400/30"
-                        : profile.rank === 3
-                        ? "bg-gradient-to-r from-amber-600/30 to-amber-700/30 ring-2 ring-amber-600/30"
-                        : "bg-gradient-to-r from-primary/20 to-purple-500/20"
+                          ? "bg-gradient-to-r from-gray-400/30 to-gray-500/30 ring-2 ring-gray-400/30"
+                          : profile.rank === 3
+                            ? "bg-gradient-to-r from-amber-600/30 to-amber-700/30 ring-2 ring-amber-600/30"
+                            : "bg-gradient-to-r from-primary/20 to-purple-500/20"
                     }`}
                   >
-                    <span className="font-bold text-lg">
-                      {profile.name.charAt(0)}
-                    </span>
+                    <span className="font-bold text-lg">{profile.name.charAt(0)}</span>
                   </div>
 
                   <div className="flex-1">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div>
                         <h4 className="font-medium text-lg">{profile.name}</h4>
                         <p className="text-sm text-muted-foreground">{profile.username}</p>
                       </div>
+
                       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mt-2 sm:mt-0">
                         <div className="flex items-center gap-2">
                           <span className="font-bold">{profile.rating.toFixed(1)}</span>
@@ -290,17 +306,13 @@ export default function Leaderboard() {
                           />
                           <span className="text-xs text-muted-foreground">({profile.ratings})</span>
                         </div>
+
                         <div className="hidden sm:flex items-center">
-                          {profile.change === "up" && (
-                            <span className="text-green-500 text-sm font-bold">↑</span>
-                          )}
-                          {profile.change === "down" && (
-                            <span className="text-red-500 text-sm font-bold">↓</span>
-                          )}
-                          {profile.change === "same" && (
-                            <span className="text-muted-foreground text-sm">-</span>
-                          )}
+                          {profile.change === "up" && <span className="text-green-500 text-sm font-bold">↑</span>}
+                          {profile.change === "down" && <span className="text-red-500 text-sm font-bold">↓</span>}
+                          {profile.change === "same" && <span className="text-muted-foreground text-sm">-</span>}
                         </div>
+
                         <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto justify-end">
                           <Button
                             variant="outline"
@@ -312,6 +324,7 @@ export default function Leaderboard() {
                             <span className="hidden sm:inline">Comment</span>
                             <span className="sm:hidden">Comment</span>
                           </Button>
+
                           <Link href={`/profile/${profile.id}`}>
                             <Button
                               variant="ghost"
@@ -332,7 +345,8 @@ export default function Leaderboard() {
                 <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="text-xl font-medium mb-2">No profiles found</h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all profiles.
+                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all
+                  profiles.
                 </p>
                 <Button variant="outline" className="mt-4 glow-effect" onClick={() => setSearchTerm("")}>
                   Show all profiles
@@ -353,5 +367,6 @@ export default function Leaderboard() {
         />
       )}
     </div>
-  );
+  )
 }
+
