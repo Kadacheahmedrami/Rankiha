@@ -5,7 +5,7 @@ import {getServerAuthSession} from '@/app/lib/auth'
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerAuthSession();
-    console.log(session)
+    
     // Get pagination parameters
     const searchParams = req.nextUrl.searchParams;
     const limit = parseInt(searchParams.get("limit") || "20");
@@ -15,9 +15,9 @@ export async function GET(req: NextRequest) {
     // Fetch paginated comments where the comment is visible and both author and target user are visible
     const comments = await prisma.comment.findMany({
       where: {
-        visible: true,
-        author: { visible: true },
-        targetUser: { visible: true },
+        visible: true, // Ensure only visible comments are fetched
+        author: { visible: { equals: true } }, // Ensure the author is visible
+        targetUser: { visible: { equals: true } }, // Ensure the target user is visible
       },
       include: {
         targetUser: {
@@ -36,11 +36,12 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: {
-        createdAt: "desc", // Most recent comments first
+        createdAt: "desc",
       },
       skip,
       take: limit,
     });
+    
 
     // Get total count of visible comments
     const totalCount = await prisma.comment.count({
@@ -63,11 +64,7 @@ export async function GET(req: NextRequest) {
         name: comment.targetUser.name,
         email: comment.targetUser.email,
       },
-      author: {
-        id: comment.author.id,
-        name: comment.author.name,
-        email: comment.author.email,
-      },
+ 
     }));
 
     return NextResponse.json({
