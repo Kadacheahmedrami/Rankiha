@@ -1,12 +1,11 @@
 import { notFound, redirect } from "next/navigation"
 import { headers } from "next/headers"
 import { format } from "date-fns"
-import { CalendarIcon, ArrowLeft, Trophy, Info } from "lucide-react"
+import { CalendarIcon, ArrowLeft, Trophy, Clock } from "lucide-react"
 import AppLayout from "@/components/app-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getServerAuthSession } from "@/app/lib/auth"
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist"
 import Link from "next/link"
@@ -14,7 +13,6 @@ import { getEventStatus } from "@/lib/events"
 import { cn } from "@/lib/utils"
 import LeaderboardWithStars from "@/components/LeaderboardWithStars"
 import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
 
 // --- Type Definitions ---
 type Event = {
@@ -66,7 +64,6 @@ async function fetchCombinedData(id: string): Promise<CombinedResponse> {
   return res.json()
 }
 
-// Replace the entire component with this simplified, mobile-responsive version
 export default async function EventDetailsPage({
   params,
 }: {
@@ -110,9 +107,6 @@ export default async function EventDetailsPage({
         ? 100
         : 0
 
-  // Get top 3 participants for highlight
-  const topParticipants = leaderboard.data.slice(0, 3)
-
   // --- Render Page ---
   return (
     <AppLayout>
@@ -126,48 +120,72 @@ export default async function EventDetailsPage({
           </Link>
         </div>
 
-        {/* Event Header */}
-        <div className="mb-6 space-y-3">
-          <Badge
-            className={cn(
-              "text-sm px-2.5 py-0.5",
-              dynamicStatus === "active" && "bg-green-500 hover:bg-green-600 text-white",
-              dynamicStatus === "upcoming" && "bg-blue-500 hover:bg-blue-600 text-white",
-              dynamicStatus === "completed" && "bg-gray-500 hover:bg-gray-600 text-white",
-            )}
-          >
-            {dynamicStatus === "active" ? "Active" : dynamicStatus === "upcoming" ? "Upcoming" : "Completed"}
-          </Badge>
+        {/* Event Header Card */}
+        <Card className="mb-6 overflow-hidden border-none shadow-md">
+          <div className="bg-gradient-to-r from-primary/90 to-primary p-6 text-white">
+            <Badge className={cn("text-sm px-2.5 py-0.5 mb-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm")}>
+              {dynamicStatus === "active" ? "Active" : dynamicStatus === "upcoming" ? "Upcoming" : "Completed"}
+            </Badge>
 
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{event.title}</h1>
-          <p className="text-muted-foreground">{event.description}</p>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">{event.title}</h1>
+            <p className="text-white/80 text-sm md:text-base mb-4">{event.description}</p>
 
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <div className="flex items-center gap-1.5">
-              <CalendarIcon className="h-4 w-4 text-primary" />
-              <span>
-                {format(new Date(event.startDate), "MMM d, yyyy")} - {format(new Date(event.endDate), "MMM d, yyyy")}
-              </span>
+            <div className="flex flex-wrap items-center gap-3 text-sm bg-white/10 p-2 rounded-lg backdrop-blur-sm inline-flex">
+              <div className="flex items-center gap-1.5">
+                <CalendarIcon className="h-4 w-4" />
+                <span>
+                  {format(new Date(event.startDate), "MMM d, yyyy")} - {format(new Date(event.endDate), "MMM d, yyyy")}
+                </span>
+              </div>
             </div>
           </div>
+        </Card>
+
+        {/* Mobile-first layout - Rankings appear above status on mobile */}
+        <div className="md:hidden mb-6">
+          <Card className="shadow-sm hover:shadow transition-shadow duration-200 overflow-hidden">
+            <CardHeader className="p-4 pb-2 bg-gradient-to-r from-muted/50 to-background">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-primary" />
+                Current Rankings
+              </CardTitle>
+              <CardDescription>See how articles are currently ranked</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="p-4  overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                <LeaderboardWithStars data={leaderboard.data} sessionUserId={session.user.id} />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Status Card */}
-        <Card className="mb-6">
+        <Card className="mb-6  hidden md:block shadow-sm hover:shadow transition-shadow duration-200">
           <CardContent className="p-4 space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="font-medium">Status</h3>
-              <Badge variant="outline" className="capitalize">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                <h3 className="font-medium">Event Status</h3>
+              </div>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "capitalize font-medium",
+                  dynamicStatus === "active" && "border-green-500 text-green-600",
+                  dynamicStatus === "upcoming" && "border-blue-500 text-blue-600",
+                  dynamicStatus === "completed" && "border-gray-500 text-gray-600",
+                )}
+              >
                 {dynamicStatus}
               </Badge>
             </div>
 
             {dynamicStatus !== "completed" && (
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center p-2 bg-muted/50 rounded-md">
                 <span className="text-sm text-muted-foreground">
                   {dynamicStatus === "upcoming" ? "Days Until Start" : "Days Remaining"}
                 </span>
-                <span className="font-medium">
+                <span className="font-medium text-lg">
                   {dynamicStatus === "upcoming"
                     ? Math.ceil((new Date(event.startDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
                     : daysRemaining}
@@ -181,98 +199,29 @@ export default async function EventDetailsPage({
                   <span>Progress</span>
                   <span>{progressPercentage}%</span>
                 </div>
-                <Progress value={progressPercentage} className="h-2" />
+                <Progress value={progressPercentage} className="h-3 rounded-full" />
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Leaderboard */}
-        <Tabs defaultValue="rankings" className="w-full">
-          <TabsList className="w-full grid grid-cols-2 mb-4">
-            <TabsTrigger value="rankings">
-              <Trophy className="mr-2 h-4 w-4 md:inline hidden" />
-              Rankings
-            </TabsTrigger>
-            <TabsTrigger value="details">
-              <Info className="mr-2 h-4 w-4 md:inline hidden" />
-              Event Details
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="rankings">
-            <Card>
-              <CardHeader className="p-4 pb-2">
-                <CardTitle className="text-xl">Current Rankings</CardTitle>
-                <CardDescription>See how items are currently ranked</CardDescription>
-              </CardHeader>
-              <CardContent className="p-4">
+        {/* Desktop Rankings - Hidden on mobile */}
+        <div className="hidden md:block">
+          <Card className="shadow-sm hover:shadow transition-shadow duration-200 overflow-hidden">
+            <CardHeader className="p-4 pb-2 bg-gradient-to-r from-muted/50 to-background">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-primary" />
+                Current Rankings
+              </CardTitle>
+              <CardDescription>See how articles are currently ranked</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="p-4  overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
                 <LeaderboardWithStars data={leaderboard.data} sessionUserId={session.user.id} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="details">
-            <Card>
-              <CardHeader className="p-4 pb-2">
-                <CardTitle className="text-xl">Event Details</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 space-y-4">
-                <div>
-                  <h3 className="font-semibold mb-1">Description</h3>
-                  <p className="text-muted-foreground text-sm">{event.description}</p>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <h3 className="font-semibold mb-1">Timeline</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <span className="text-muted-foreground">Start Date</span>
-                    <span className="text-right">{format(new Date(event.startDate), "MMMM d, yyyy")}</span>
-
-                    <span className="text-muted-foreground">End Date</span>
-                    <span className="text-right">{format(new Date(event.endDate), "MMMM d, yyyy")}</span>
-
-                    <span className="text-muted-foreground">Duration</span>
-                    <span className="text-right">
-                      {Math.ceil(
-                        (new Date(event.endDate).getTime() - new Date(event.startDate).getTime()) /
-                          (1000 * 60 * 60 * 24),
-                      )}{" "}
-                      days
-                    </span>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h3 className="font-semibold mb-1">Top Performers</h3>
-                  <div className="space-y-3 mt-2">
-                    {topParticipants.length > 0 ? (
-                      topParticipants.map((participant, index) => (
-                        <div key={participant.id} className="flex items-center gap-3">
-                          <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">
-                            {index + 1}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate text-sm">{participant.name}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold text-sm">{participant.rating.toFixed(1)}</p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No participants yet</p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </AppLayout>
   )
