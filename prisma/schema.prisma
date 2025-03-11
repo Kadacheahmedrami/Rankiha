@@ -26,6 +26,8 @@ model User {
   // NextAuth relations
   accounts       Account[]   // A user can have multiple authentication accounts
   sessions       Session[]   // A user can have multiple active sessions
+  tag            String     @default("USER")  
+  
 
   // Rating system relations
   ratingsGiven    Rating[]   @relation("RatedBy")    // Ratings given by this user
