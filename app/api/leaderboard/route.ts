@@ -74,6 +74,7 @@ async function securityMiddleware(req: NextRequest): Promise<NextResponse | null
     }
   }
   const session = await getServerAuthSession();
+ 
   if (!session?.user) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }

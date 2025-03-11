@@ -1,4 +1,4 @@
-// app/api/events/[eventId]/articles/leaderboard/route.ts
+// app/api/events/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/prisma/prismaClient';
 import { getServerAuthSession } from '@/app/lib/auth';
@@ -7,7 +7,6 @@ import { validateToken, generateCSRFToken } from '@/lib/csrf';
 import { BLACKLISTED_EMAILS } from '@/app/BLACKLIST/blacklist';
 import { logger } from '@/lib/logger';
 
-// Constants for security settings
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 30;
 
@@ -31,7 +30,9 @@ async function securityMiddleware(req: NextRequest): Promise<NextResponse | null
       return NextResponse.json({ error: "Invalid request" }, { status: 403 });
     }
   }
+  // Uncomment below if you need session authentication in this endpoint:
   const session = await getServerAuthSession();
+
   if (!session?.user) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
@@ -56,25 +57,42 @@ async function setSecurityHeaders(response: NextResponse): Promise<NextResponse>
 }
 
 /**
- * GET: Fetch an article leaderboard for a specific event.
+ * GET: Fetch event details and an article leaderboard for a specific event.
  * Calculates each article's average rating, count, rank, and change indicator.
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { eventId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     // Run security middleware.
     const secCheck = await securityMiddleware(req);
     if (secCheck) return secCheck;
 
+    const { id } = params;
+
+    // --- Query Event Details ---
+    const event = await prisma.event.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        startDate: true,
+        endDate: true,
+      },
+    });
+    if (!event) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+
+    // --- Query Leaderboard Data ---
     const searchParams = req.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '20');
     const page = parseInt(searchParams.get('page') || '1');
     const skip = (page - 1) * limit;
-    const { eventId } = params;
 
-    // Query articles for the event, joining with ratings to calculate average rating and count.
+    // Query articles for the event (using id), joining with ratings to calculate average rating and count.
     const articles = await prisma.$queryRaw<any[]>`
       SELECT 
         a.id,
@@ -85,7 +103,7 @@ export async function GET(
         COUNT(r.id) as "ratingsCount"
       FROM "Article" a
       LEFT JOIN "Rating" r ON a.id = r."ratedArticleId"
-      WHERE a."eventId" = ${eventId} AND a.visible = true
+      WHERE a."eventId" = ${id} AND a.visible = true
       GROUP BY a.id
       ORDER BY rating DESC, "ratingsCount" DESC
       LIMIT ${limit} OFFSET ${skip}
@@ -95,7 +113,7 @@ export async function GET(
     const countResult = await prisma.$queryRaw<{ count: string }[]>`
       SELECT COUNT(*) as count
       FROM "Article" a
-      WHERE a."eventId" = ${eventId} AND a.visible = true
+      WHERE a."eventId" = ${id} AND a.visible = true
     `;
     const totalCount = parseInt(countResult[0].count);
     const totalPages = Math.ceil(totalCount / limit);
@@ -108,7 +126,7 @@ export async function GET(
         COUNT(r.id) as "ratingsCount"
       FROM "Article" a
       LEFT JOIN "Rating" r ON a.id = r."ratedArticleId"
-      WHERE a."eventId" = ${eventId} AND r."createdAt" < NOW() - INTERVAL '24 HOURS'
+      WHERE a."eventId" = ${id} AND r."createdAt" < NOW() - INTERVAL '24 HOURS'
       GROUP BY a.id
       ORDER BY rating DESC, "ratingsCount" DESC
     `;
@@ -135,9 +153,13 @@ export async function GET(
       };
     });
 
+    // --- Build Combined Response ---
     const responseData = {
-      data: leaderboard,
-      pagination: { total: totalCount, page, limit, totalPages },
+      event,
+      leaderboard: {
+        data: leaderboard,
+        pagination: { total: totalCount, page, limit, totalPages },
+      },
     };
 
     const response = NextResponse.json(responseData);

@@ -71,30 +71,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Check the visibility of the target user
-    const targetUser = await prisma.user.findUnique({
-      where: { id: targetUserId },
-      select: { visible: true },
-    });
-    if (!targetUser || !targetUser.visible) {
-      return NextResponse.json(
-        { error: "Cannot comment: Target user's profile is deactivated" },
-        { status: 400 }
-      );
-    }
-
-    // Check the visibility of the authenticated user (author)
-    const author = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { visible: true },
-    });
-    if (!author || !author.visible) {
-      return NextResponse.json(
-        { error: "Cannot comment: Your account is deactivated" },
-        { status: 400 }
-      );
-    }
-
     // Create the comment in the database
     const comment = await prisma.comment.create({
       data: {
@@ -113,7 +89,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, comment });
   } catch (error: unknown) {
-    console.error("Error creating comment:", error);
     return NextResponse.json(
       { error: "Failed to save comment" },
       { status: 500 }

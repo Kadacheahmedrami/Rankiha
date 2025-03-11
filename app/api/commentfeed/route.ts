@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma/prismaClient";
-
+import {getServerAuthSession} from '@/app/lib/auth'
 // GET: Fetch comments with pagination and target user information
 export async function GET(req: NextRequest) {
   try {
+    const session = await getServerAuthSession();
+    console.log(session)
     // Get pagination parameters
     const searchParams = req.nextUrl.searchParams;
     const limit = parseInt(searchParams.get("limit") || "20");
