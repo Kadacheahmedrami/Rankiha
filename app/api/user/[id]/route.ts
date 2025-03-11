@@ -36,7 +36,7 @@ export async function GET(
     }
 
     // Derive username from email (e.g. "john.doe" from "john.doe@example.com").
-    const username = user.email ? user.email.split("@")[0] : "";
+    const username = user.email ? user.email : "";
 
     // Fetch all ratings received by this user.
     const ratings = await prisma.rating.findMany({
