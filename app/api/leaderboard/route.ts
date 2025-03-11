@@ -1,20 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerAuthSession } from "@/app/lib/auth";
-import { prisma } from "@/prisma/prismaClient";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerAuthSession } from '@/app/lib/auth';
+import { prisma } from '@/prisma/prismaClient';
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 
 // Define a type for the raw rank query result
 type RankResult = { higherCount: string }[];
 
 // Helper: Calculate current rank for a given average rating and ratings count
-async function getUserRank(
-  averageRating: number,
-  ratingsCount: number
-): Promise<number> {
+async function getUserRank(averageRating: number, ratingsCount: number): Promise<number> {
   const rankResult = await prisma.$queryRaw<RankResult>`
     SELECT COUNT(*) as "higherCount"
     FROM (
-      SELECT
+      SELECT 
         u.id,
         COALESCE(AVG(r.value)::FLOAT, 0) as rating,
         COUNT(r.id) as "ratingsCount"
@@ -33,26 +30,26 @@ export async function GET(req: NextRequest) {
   try {
     // Get query parameters for filtering and pagination
     const searchParams = req.nextUrl.searchParams;
-    const searchTerm = searchParams.get("search") || "";
-    const limit = parseInt(searchParams.get("limit") || "20");
-    const page = parseInt(searchParams.get("page") || "1");
+    const searchTerm = searchParams.get('search') || '';
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = parseInt(searchParams.get('page') || '1');
     const skip = (page - 1) * limit;
 
     // Fetch paginated users with their average rating
     const users = await prisma.$queryRaw<any[]>`
-      SELECT
-        u.id,
-        u.name,
-        u.email,
+      SELECT 
+        u.id, 
+        u.name, 
+        u.email, 
         u.image,
         COALESCE(AVG(r.value)::FLOAT, 0) as rating,
         COUNT(r.id) as "ratingsCount",
         u."createdAt"
       FROM "User" u
       LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
-      WHERE
+      WHERE 
         u.visible = true AND
-        (u.name ILIKE ${`%${searchTerm}%`} OR
+        (u.name ILIKE ${`%${searchTerm}%`} OR 
          u.email ILIKE ${`%${searchTerm}%`})
       GROUP BY u.id
       ORDER BY rating DESC, "ratingsCount" DESC
@@ -70,8 +67,8 @@ export async function GET(req: NextRequest) {
 
     // Get previous leaderboard (to calculate change indicators)
     const previousRankings = await prisma.$queryRaw<any[]>`
-      SELECT
-        u.id,
+      SELECT 
+        u.id, 
         COALESCE(AVG(r.value)::FLOAT, 0) as rating,
         COUNT(r.id) as "ratingsCount"
       FROM "User" u
@@ -89,7 +86,7 @@ export async function GET(req: NextRequest) {
     const leaderboard = users.map((user, index) => {
       const currentRank = skip + index + 1; // Global rank based on pagination offset
       const previousRank = prevRankingsMap.get(user.id) || currentRank;
-
+      
       let change: "up" | "down" | "same" = "same";
       if (previousRank < currentRank) change = "down";
       if (previousRank > currentRank) change = "up";
@@ -97,7 +94,7 @@ export async function GET(req: NextRequest) {
       return {
         id: user.id,
         name: user.name,
-        username: user.email.split("@")[0],
+        username: user.email.split('@')[0],
         rating: parseFloat(user.rating.toFixed(1)),
         ratings: parseInt(user.ratingsCount),
         change,
@@ -114,15 +111,12 @@ export async function GET(req: NextRequest) {
       const currentUserRatings = await prisma.rating.findMany({
         where: { ratedUserId: session.user.id },
       });
-      const totalRating = currentUserRatings.reduce(
-        (sum, r) => sum + r.value,
-        0
-      );
+      const totalRating = currentUserRatings.reduce((sum, r) => sum + r.value, 0);
       const ratingsCount = currentUserRatings.length;
       const averageRating = ratingsCount > 0 ? totalRating / ratingsCount : 0;
       const averageRatingRounded = parseFloat(averageRating.toFixed(1));
       const rank = await getUserRank(averageRating, ratingsCount);
-
+      
       // Get current user's basic profile info
       const currentUserProfile = await prisma.user.findUnique({
         where: { id: session.user.id },
@@ -136,7 +130,7 @@ export async function GET(req: NextRequest) {
       currentUserData = {
         id: currentUserProfile?.id,
         name: currentUserProfile?.name,
-        username: currentUserProfile?.email.split("@")[0],
+        username: currentUserProfile?.email.split('@')[0],
         rating: averageRatingRounded,
         ratings: ratingsCount,
         rank,
@@ -155,10 +149,8 @@ export async function GET(req: NextRequest) {
       currentUser: currentUserData,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to fetch leaderboard" },
-      { status: 500 }
-    );
+    console.error("Error fetching leaderboard:", error);
+    return NextResponse.json({ error: "Failed to fetch leaderboard" }, { status: 500 });
   }
 }
 
@@ -169,31 +161,25 @@ export async function POST(req: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
+    
     // Block access if the authenticated user's email is blacklisted
     if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
       return NextResponse.json({ error: "Niik moukk" }, { status: 403 });
     }
-
+    
     const currentUser = session.user;
     const body = await req.json();
     const { ratedUserId, value } = body;
-
-    if (!ratedUserId || typeof value !== "number" || value < 1 || value > 5) {
-      return NextResponse.json(
-        { error: "Invalid rating data" },
-        { status: 400 }
-      );
+    
+    if (!ratedUserId || typeof value !== 'number' || value < 1 || value > 5) {
+      return NextResponse.json({ error: "Invalid rating data" }, { status: 400 });
     }
-
+    
     // Prevent users from rating themselves
     if (currentUser.id === ratedUserId) {
-      return NextResponse.json(
-        { error: "You cannot rate yourself" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "You cannot rate yourself" }, { status: 400 });
     }
-
+    
     // Create or update rating using upsert
     const rating = await prisma.rating.upsert({
       where: {
@@ -209,31 +195,29 @@ export async function POST(req: NextRequest) {
         value,
       },
     });
-
+    
     // Calculate new average rating for the rated user
     const userRatings = await prisma.rating.findMany({
       where: { ratedUserId },
     });
-
+    
     const totalRating = userRatings.reduce((sum, r) => sum + r.value, 0);
     const averageRating = totalRating / userRatings.length;
     const averageRatingRounded = parseFloat(averageRating.toFixed(1));
-
+    
     // Compute current rank for the rated user
     const rank = await getUserRank(averageRating, userRatings.length);
-
-    return NextResponse.json({
-      success: true,
+    
+    return NextResponse.json({ 
+      success: true, 
       rating,
       averageRating: averageRatingRounded,
       ratingsCount: userRatings.length,
       rank,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to save rating" },
-      { status: 500 }
-    );
+    console.error("Error creating/updating rating:", error);
+    return NextResponse.json({ error: "Failed to save rating" }, { status: 500 });
   }
 }
 
@@ -244,41 +228,35 @@ export async function PATCH(req: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
+    
     // Block access if the authenticated user's email is blacklisted
     if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
-
+    
     const currentUser = session.user;
     const body = await req.json();
     const { ratings } = body;
-
+    
     if (!Array.isArray(ratings) || ratings.length === 0) {
-      return NextResponse.json(
-        { error: "Invalid ratings data" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid ratings data" }, { status: 400 });
     }
-
+    
     // Validate all ratings
     for (const rating of ratings) {
       if (
         !rating.ratedUserId ||
-        typeof rating.value !== "number" ||
+        typeof rating.value !== 'number' ||
         rating.value < 1 ||
         rating.value > 5 ||
         rating.ratedUserId === currentUser.id
       ) {
-        return NextResponse.json(
-          {
-            error: "Invalid rating data or attempt to rate yourself",
-          },
-          { status: 400 }
-        );
+        return NextResponse.json({ 
+          error: "Invalid rating data or attempt to rate yourself" 
+        }, { status: 400 });
       }
     }
-
+    
     // Use a transaction to update all ratings
     const updatedRatings = await prisma.$transaction(async (tx) => {
       const results = [];
@@ -301,18 +279,17 @@ export async function PATCH(req: NextRequest) {
       }
       return results;
     });
-
+    
     // Calculate updates for each affected user
     const affectedUserIds = [...new Set(ratings.map((r) => r.ratedUserId))];
-
+    
     const updates = await Promise.all(
       affectedUserIds.map(async (userId) => {
         const userRatings = await prisma.rating.findMany({
           where: { ratedUserId: userId },
         });
         const totalRating = userRatings.reduce((sum, r) => sum + r.value, 0);
-        const averageRating =
-          userRatings.length > 0 ? totalRating / userRatings.length : 0;
+        const averageRating = userRatings.length > 0 ? totalRating / userRatings.length : 0;
         const averageRatingRounded = parseFloat(averageRating.toFixed(1));
         const rank = await getUserRank(averageRating, userRatings.length);
         return {
@@ -323,16 +300,14 @@ export async function PATCH(req: NextRequest) {
         };
       })
     );
-
-    return NextResponse.json({
-      success: true,
+    
+    return NextResponse.json({ 
+      success: true, 
       updatedRatings,
       updates,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to update ratings" },
-      { status: 500 }
-    );
+    console.error("Error updating multiple ratings:", error);
+    return NextResponse.json({ error: "Failed to update ratings" }, { status: 500 });
   }
 }
