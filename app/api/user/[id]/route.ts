@@ -85,7 +85,6 @@ export async function GET(
       rating: parseFloat(averageRating.toFixed(1)),
       totalRatings,
       ratingDistribution: distribution,
-      image: user.image || "",
       comments: formattedComments,
     };
 

@@ -171,7 +171,6 @@ export async function GET(req: NextRequest) {
         rating: parseFloat(user.rating.toFixed(1)),
         ratings: parseInt(user.ratingsCount),
         change,
-        image: user.image,
         rank: currentRank,
       };
     });
