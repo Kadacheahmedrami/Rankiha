@@ -59,7 +59,7 @@ export default function BannedPage() {
             className="w-full sm:w-auto gap-2 bg-gradient-to-r from-primary to-purple-500 hover:from-primary/90 hover:to-purple-500/90"
             asChild
           >
-            <Link href="mailto:support@example.com">
+            <Link href="mailto:yadakfiih@gmail.com">
               <Mail className="h-4 w-4" />
               Contact Support
             </Link>
