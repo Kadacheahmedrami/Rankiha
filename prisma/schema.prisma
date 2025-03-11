@@ -9,40 +9,40 @@ datasource db {
   url      = env("DATABASE_URL") // The database URL is stored in an environment variable for security
 }
 
-// The User model represents the application users
+// ==================================================================================
+// User Model & Related Models
+// ==================================================================================
 model User {
   id             String     @id @default(cuid()) // Unique identifier, auto-generated with cuid()
-  email          String     @unique // Unique email address for each user
-  name           String?    // Optional name field
-  emailVerified  DateTime?  // Optional field to store when the email was verified
-  image          String?    // Optional URL to the user's profile image
-  googleId       String?    @unique // Optional unique Google ID for authentication
-  createdAt      DateTime   @default(now()) // Timestamp for when the user was created; defaults to the current time
-  updatedAt      DateTime   @updatedAt // Automatically updated timestamp when the record is modified
-  visible        Boolean    @default(false)
+  email          String     @unique             // Unique email address for each user
+  name           String?                           // Optional name field
+  emailVerified  DateTime?                         // Optional field for email verification timestamp
+  image          String?                           // Optional URL for the user's profile image
+  googleId       String?    @unique             // Optional unique Google ID for authentication
+  createdAt      DateTime   @default(now())       // Timestamp when the user was created
+  updatedAt      DateTime   @updatedAt            // Automatically updated timestamp on modification
+  visible        Boolean    @default(false)       // Controls if the user is publicly visible
 
-  // Relations for NextAuth authentication
-  accounts       Account[]  // A user can have multiple authentication accounts
-  sessions       Session[]  // A user can have multiple active sessions
+  // NextAuth relations
+  accounts       Account[]   // A user can have multiple authentication accounts
+  sessions       Session[]   // A user can have multiple active sessions
 
-  // Application-specific relations for the rating system
-  ratings         Rating[]   @relation("RatedBy") // Ratings that the user has given to others
-  receivedRatings Rating[]   @relation("RatedUser") // Ratings that the user has received from others
+  // Rating system relations
+  ratingsGiven    Rating[]   @relation("RatedBy")    // Ratings given by this user
+  receivedRatings Rating[]   @relation("RatedUser")  // Ratings received by this user
 
-  // New relations for the comment system
-  commentsGiven    Comment[]  @relation("CommentsGiven") // Comments this user has authored
+  // Comment system relations
+  commentsGiven    Comment[]  @relation("CommentsGiven")    // Comments authored by this user
   commentsReceived Comment[]  @relation("CommentsReceived") // Comments received by this user
-
-  reportsMade CommentReport[] @relation("ReportsMade")
+  reportsMade      CommentReport[] @relation("ReportsMade") // Reports made by this user
 }
 
-// The Account model stores external authentication account details (e.g., OAuth accounts)
 model Account {
-  id                 String   @id @default(cuid()) // Unique identifier for each account
-  userId             String   // Foreign key referencing the User model
+  id                 String   @id @default(cuid())
+  userId             String   // Foreign key referencing User
   type               String   // Type of account (e.g., "oauth")
-  provider           String   // Name of the authentication provider (e.g., Google, Facebook)
-  providerAccountId  String   // Unique identifier provided by the authentication provider
+  provider           String   // Name of the authentication provider (e.g., Google)
+  providerAccountId  String   // Unique identifier provided by the provider
   refresh_token      String?  // Optional refresh token for obtaining new access tokens
   access_token       String?  // Optional access token for API calls
   expires_at         Int?     // Optional expiration time for the tokens
@@ -51,74 +51,81 @@ model Account {
   id_token           String?  // Optional ID token used for authentication
   session_state      String?  // Optional session state
 
-  // Define the relationship with the User model
+  // Relation: linking to the User
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Composite unique constraint to ensure the combination of provider and providerAccountId is unique
   @@unique([provider, providerAccountId])
 }
 
-// The Session model represents user sessions for authentication purposes
 model Session {
-  id           String   @id @default(cuid()) // Unique session identifier
-  sessionToken String   @unique // Unique token for the session
-  userId       String   // Foreign key referencing the User model
-  expires      DateTime // Session expiration date and time
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String   // Foreign key referencing User
+  expires      DateTime
 
-  // Define the relationship with the User model
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// The VerificationToken model is used for actions like email verification
 model VerificationToken {
-  identifier String // Identifier, typically the user's email or similar
-  token      String   @unique // Unique token used for verification
-  expires    DateTime // Expiration date and time for the token
+  identifier String  // Typically the user's email
+  token      String  @unique
+  expires    DateTime
 
-  // Composite unique constraint to ensure each identifier-token combination is unique
   @@unique([identifier, token])
 }
 
-// The Rating model represents a rating given by one user to another
+// ==================================================================================
+// Rating Model (Polymorphic: Users and Articles)
+// ==================================================================================
 model Rating {
-  id            String   @id @default(cuid()) // Unique identifier for the rating
-  value         Int      // Numeric rating value (e.g., on a scale from 1 to 5)
-  createdAt     DateTime @default(now()) // Timestamp when the rating was created
-  updatedAt     DateTime @updatedAt // Automatically updated timestamp when the rating changes
+  id             String   @id @default(cuid())
+  value          Int      // Numeric rating (e.g., 1 to 5)
+  comment        String?  // Optional comment explaining the rating
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  userId        String   // ID of the user who provided the rating
-  user          User     @relation("RatedBy", fields: [userId], references: [id], onDelete: Cascade) // Relationship to the rater
+  // The user who gave the rating
+  userId         String
+  user           User     @relation("RatedBy", fields: [userId], references: [id], onDelete: Cascade)
 
-  ratedUserId   String   // ID of the user who received the rating
-  ratedUser     User     @relation("RatedUser", fields: [ratedUserId], references: [id], onDelete: Cascade) // Relationship to the recipient
+  // Polymorphic fields: either a user or an article is rated
+  ratedUserId    String?  // ID of the user being rated (null if rating an article)
+  ratedUser      User?    @relation("RatedUser", fields: [ratedUserId], references: [id], onDelete: Cascade)
 
-  // Ensure a user can only rate another user once by enforcing a unique combination of userId and ratedUserId
+  ratedArticleId String?  // ID of the article being rated (null if rating a user)
+  ratedArticle   Article? @relation(fields: [ratedArticleId], references: [id], onDelete: Cascade)
+
+  // NOTE: Check constraints to enforce that either ratedUserId or ratedArticleId must be provided
+  // are not currently supported in Prisma schema (or are in preview); therefore, they are omitted.
+
   @@unique([userId, ratedUserId])
+  @@unique([userId, ratedArticleId])
 }
 
-// The Comment model represents a comment left by one user for another
+// ==================================================================================
+// Comment & CommentReport Models
+// ==================================================================================
 model Comment {
-  id            String   @id @default(cuid()) // Unique identifier for the comment
-  content       String   // The content of the comment
-  createdAt     DateTime @default(now()) // Timestamp for when the comment was created
-  updatedAt     DateTime @updatedAt // Automatically updated timestamp when the comment is modified
-  visible       Boolean    @default(true)
+  id           String   @id @default(cuid())
+  content      String   // Comment text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  visible      Boolean  @default(true)
 
-  // The user who authored the comment
-  authorId      String
-  author        User     @relation("CommentsGiven", fields: [authorId], references: [id], onDelete: Cascade)
+  // Relation: author of the comment
+  authorId     String
+  author       User     @relation("CommentsGiven", fields: [authorId], references: [id], onDelete: Cascade)
 
-  // The user who received the comment (e.g., on their profile)
-  targetUserId  String
-  targetUser    User     @relation("CommentsReceived", fields: [targetUserId], references: [id], onDelete: Cascade)
+  // Relation: target user receiving the comment
+  targetUserId String
+  targetUser   User     @relation("CommentsReceived", fields: [targetUserId], references: [id], onDelete: Cascade)
 
-  reports CommentReport[]
+  reports      CommentReport[]
 }
 
-// The CommentReport model represents reports submitted by users for inappropriate comments
 model CommentReport {
-  id            String   @id @default(cuid()) // Unique identifier for the report
-  createdAt     DateTime @default(now()) // Timestamp when the report was created
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
 
   // The user who reported the comment
   reporterUserId String
@@ -128,5 +135,38 @@ model CommentReport {
   commentId      String
   comment        Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
-  @@unique([reporterUserId, commentId]) // Prevent duplicate reports from the same user for the same comment
+  @@unique([reporterUserId, commentId])
+}
+
+// ==================================================================================
+// New Models: Event and Article
+// ==================================================================================
+model Event {
+  id          String    @id @default(cuid()) // Unique identifier for the event
+  title        String    // Title of the event
+  description String?   // Optional detailed description
+  startDate   DateTime  // When the event begins
+  endDate     DateTime  // When the event ends
+  isActive    Boolean   @default(true)  // Active status toggle
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relation: Articles associated with this event
+  articles    Article[]
+}
+
+model Article {
+  id          String    @id @default(cuid()) // Unique identifier for the article
+  name       String    // Title of the article
+  description     String    // Content/body of the article
+  visible     Boolean   @default(true) // Visibility toggle for the article
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relation: The event this article belongs to
+  eventId     String
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // Relation: Ratings received for this article (polymorphic Rating model uses ratedArticleId)
+  ratings     Rating[]
 }
