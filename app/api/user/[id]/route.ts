@@ -8,6 +8,9 @@ export async function GET(
 ): Promise<NextResponse> {
   try {
     const { id } = params;
+    if (!id) {
+      return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
+    }
 
     // Fetch the user from the database, including the "visible" field.
     const user = await prisma.user.findUnique({
@@ -24,16 +27,16 @@ export async function GET(
 
     // If no user is found or the user is deactivated (visible: false), return 404.
     if (!user || !user.visible) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Block access if the user's email is blacklisted.
     if (user.email && BLACKLISTED_EMAILS.includes(user.email)) {
-      return NextResponse.json({ error: 'Niik moukk' }, { status: 403 });
+      return NextResponse.json({ error: "Niik moukk" }, { status: 403 });
     }
 
     // Derive username from email (e.g. "john.doe" from "john.doe@example.com").
-    const username = user.email ? user.email.split('@')[0] : '';
+    const username = user.email ? user.email.split("@")[0] : "";
 
     // Fetch all ratings received by this user.
     const ratings = await prisma.rating.findMany({
@@ -42,8 +45,7 @@ export async function GET(
 
     const totalRatings = ratings.length;
     const totalRatingValue = ratings.reduce((sum, r) => sum + r.value, 0);
-    const averageRating =
-      totalRatings > 0 ? totalRatingValue / totalRatings : 0;
+    const averageRating = totalRatings > 0 ? totalRatingValue / totalRatings : 0;
 
     // Calculate the rating distribution:
     // Index 0: 5-star, Index 1: 4-star, ... Index 4: 1-star.
@@ -54,17 +56,16 @@ export async function GET(
       }
     });
 
-    // Fetch all comments received by this user.
-    // Only select the content and createdAt fields for anonymity.
+    // Fetch all visible comments received by this user.
     const comments = await prisma.comment.findMany({
-      where: { targetUserId: id },
+      where: { targetUserId: id, visible: true },
       select: {
         id: true,
         content: true,
         createdAt: true,
-        visible : true
+    
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     // Format comments, converting createdAt dates to ISO strings.
@@ -78,13 +79,13 @@ export async function GET(
       id: user.id,
       name: user.name || "",
       username,
-      bio: '', // Default value as no bio field exists.
-      location: '', // Default value as no location field exists.
+      bio: "", // Default value as no bio field exists.
+      location: "", // Default value as no location field exists.
       joinedDate: user.createdAt.toISOString(),
       rating: parseFloat(averageRating.toFixed(1)),
       totalRatings,
       ratingDistribution: distribution,
-      image: user.image || '',
+      image: user.image || "",
       comments: formattedComments,
     };
 

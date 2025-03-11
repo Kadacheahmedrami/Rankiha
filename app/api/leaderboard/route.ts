@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
         rating: averageRatingRounded,
         ratings: ratingsCount,
         rank,
-        image: currentUserProfile?.image,
+ 
       };
     }
     
