@@ -62,6 +62,7 @@ export async function GET(
         id: true,
         content: true,
         createdAt: true,
+        visible : true
       },
       orderBy: { createdAt: 'desc' },
     });
