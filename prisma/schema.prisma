@@ -22,11 +22,11 @@ model User {
   createdAt      DateTime   @default(now())       // Timestamp when the user was created
   updatedAt      DateTime   @updatedAt            // Automatically updated timestamp on modification
   visible        Boolean    @default(false)       // Controls if the user is publicly visible
-
+  tag            String     @default("USER")  
   // NextAuth relations
   accounts       Account[]   // A user can have multiple authentication accounts
   sessions       Session[]   // A user can have multiple active sessions
-  tag            String     @default("USER")  
+ 
   
 
   // Rating system relations

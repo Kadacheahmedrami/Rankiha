@@ -47,7 +47,7 @@ export default function Leaderboard() {
     switch (upperTag) {
       case "ADMIN":
         return "bg-gradient-to-r from-primary to-purple-500 text-white px-3 py-1 rounded-full shadow-lg transform hover:scale-105 transition duration-300 m-2"
-      case "PROFESSEUR":
+      case "PROFESSOR":
         return "bg-gradient-to-r from-primary/80 to-secondary/80 text-white px-3 py-1 rounded-full shadow-lg transform hover:rotate-3 transition duration-300 m-2"
       case "BANNED":
         return "bg-red-500 text-white px-3 py-1 rounded-full border-4 border-dashed border-yellow-300 font-extrabold animate-pulse m-2"
