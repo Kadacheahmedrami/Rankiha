@@ -137,8 +137,10 @@ export default function Leaderboard() {
 
   // Handle comment submission with length validation and user notification
   const handleCommentSubmit = async (comment: string): Promise<boolean> => {
-    if (!selectedProfile) return false
 
+ 
+    if (!selectedProfile) return false
+  
     const trimmedComment = comment.trim()
 
     if (trimmedComment.length === 0) {
@@ -147,12 +149,14 @@ export default function Leaderboard() {
     }
 
     if (trimmedComment.length < 3) {
+    
       toast.error("Comment is too short. Please enter at least 3 characters.")
       return false
     }
 
     if (trimmedComment.length > 500) {
       toast.error("Comment is too long. Please limit your comment to 500 characters.")
+      
       return false
     }
 
@@ -160,12 +164,7 @@ export default function Leaderboard() {
     const startsWithCapital = /^[A-Z]/.test(trimmedComment)
     const endsWithPunctuation = /[.!?]$/.test(trimmedComment)
 
-    if (!startsWithCapital || !endsWithPunctuation) {
-      toast.error(
-        "Invalid comment format: Comments should start with a capital letter and end with proper punctuation (., !, or ?).",
-      )
-      return false
-    }
+ 
 
     try {
       const response = await fetch("/api/comment", {
