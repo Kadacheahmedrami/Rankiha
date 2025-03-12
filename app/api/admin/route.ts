@@ -1,22 +1,32 @@
-// pages/api/honeypot.ts
-import { NextApiRequest, NextApiResponse } from 'next';
+// app/api/honeypot/route.ts
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/prisma/prismaClient';
-import { getServerAuthSession } from '@/app/lib/auth'; // Adjust import as needed
+import { getServerSession } from 'next-auth'; // Adjust import based on your auth setup
 
-async function logHoneypotRequest(req: NextApiRequest) {
-  const ip =
-    req.headers['x-forwarded-for'] ||
-    req.connection.remoteAddress ||
-    'unknown';
-  const userAgent = req.headers['user-agent'] || 'unknown';
+
+async function logHoneypotRequest(req: NextRequest) {
+  // Get IP address
+  const ip = req.headers.get('x-forwarded-for') || 
+             req.ip || 
+             'unknown';
+  
+  // Get user agent
+  const userAgent = req.headers.get('user-agent') || 'unknown';
+  
+  // Get URL
   const url = req.url || 'unknown';
-  const headers = req.headers;
+  
+  // Convert headers to an object for storage
+  const headersObj: Record<string, string> = {};
+  req.headers.forEach((value, key) => {
+    headersObj[key] = value;
+  });
 
-  // Attempt to get the session data if the request is authenticated
+  // Try to get session data if available
   let email: string | null = null;
   let name: string | null = null;
   try {
-    const session = await getServerAuthSession();
+    const session = await getServerSession();
     if (session && session.user) {
       email = session.user.email || null;
       name = session.user.name || null;
@@ -26,24 +36,32 @@ async function logHoneypotRequest(req: NextApiRequest) {
   }
 
   // Save the log entry in the database
-  
   await prisma.honeypotLog.create({
     data: {
       ip: typeof ip === 'string' ? ip : Array.isArray(ip) ? ip[0] : 'unknown',
       userAgent,
       url,
-      headers,
+      headers: headersObj,
       email,
       name,
     },
   });
 }
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export async function GET(req: NextRequest) {
   await logHoneypotRequest(req);
-  // Return a generic response
-  res.status(200).json({ message: 'Resource not found' });
+  // Return a 404 status to appear more realistic
+  return NextResponse.json(
+    { message: "Resource not found" },
+    { status: 404 }
+  );
+}
+
+// You can also handle other HTTP methods to make it more convincing
+export async function POST(req: NextRequest) {
+  await logHoneypotRequest(req);
+  return NextResponse.json(
+    { message: "Method not allowed" },
+    { status: 405 }
+  );
 }
