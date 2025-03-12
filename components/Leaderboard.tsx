@@ -55,16 +55,6 @@ export default function Leaderboard() {
     }
   }
 
-  const [isMobile, setIsMobile] = useState<boolean>(false);
-
-useEffect(() => {
-  const handleResize = () => setIsMobile(window.innerWidth < 768);
-  handleResize(); // check on mount
-  window.addEventListener("resize", handleResize);
-  return () => window.removeEventListener("resize", handleResize);
-}, []);
-
-
   // Fetch leaderboard data with pagination metadata
   const fetchLeaderboard = async (): Promise<void> => {
     try {
@@ -345,7 +335,7 @@ useEffect(() => {
            
                       </div>
                     </div>
-                    <span className={getTagStyles(profile.tag) +'  ml-auto  inline md:hidden mb-auto' }>{profile.tag}</span>
+                    <span className={getTagStyles(profile.tag) +' inline md:hidden  ml-auto mb-auto' }>{profile.tag}</span>
                   </div>
 
                   {/* Mobile layout: Bottom row with rating and buttons */}
@@ -355,7 +345,7 @@ useEffect(() => {
                       <RatingStars
                         initialRating={profile.rating}
                         displayOnly={false}
-                        size={isMobile ? "md" : "sm"}
+                        size="sm"
                         profileId={profile.id}
                         disableSelfRating={session?.user?.id === profile.id}
                         onRate={(newRating: number) => handleRatingChange(profile, newRating)}
