@@ -172,3 +172,15 @@ model Article {
   // Relation: Ratings received for this article (polymorphic Rating model uses ratedArticleId)
   ratings     Rating[]
 }
+
+
+model HoneypotLog {
+  id        Int      @id @default(autoincrement())
+  ip        String
+  userAgent String
+  url       String?  // URL that was accessed
+  headers   Json?    // Request headers
+  email     String?  // Optional: email from the authenticated session
+  name      String?  // Optional: name from the authenticated session
+  createdAt DateTime @default(now())
+}
