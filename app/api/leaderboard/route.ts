@@ -170,7 +170,7 @@ export async function GET(req: NextRequest) {
         name: user.name,
         username: user.email,
         tag : user.tag,
-        rating: parseFloat(user.rating.toFixed(1)),
+        rating: parseFloat(user.rating.toFixed(2)),
         ratings: parseInt(user.ratingsCount),
         change,
         rank: currentRank,
