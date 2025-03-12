@@ -12,7 +12,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Extra security: block action if the user's email is blacklisted.
   if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    return NextResponse.json({ error: 'you are banned little guy' }, { status: 403 });
   }
 
   try {

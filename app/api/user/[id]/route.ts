@@ -32,7 +32,7 @@ export async function GET(
 
     // Block access if the user's email is blacklisted.
     if (user.email && BLACKLISTED_EMAILS.includes(user.email)) {
-      return NextResponse.json({ error: "Niik moukk" }, { status: 403 });
+      return NextResponse.json({ error: "you are banned little guy " }, { status: 403 });
     }
 
     // Derive username from email (e.g. "john.doe" from "john.doe@example.com").

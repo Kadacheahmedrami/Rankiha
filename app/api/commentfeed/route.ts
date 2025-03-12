@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma/prismaClient";
 import {getServerAuthSession} from '@/app/lib/auth'
+import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 // GET: Fetch comments with pagination and target user information
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerAuthSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     
+    if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
+      return NextResponse.json({ error: "you are banned little guy" }, { status: 403 });
+    }
+
+
+
     // Get pagination parameters
     const searchParams = req.nextUrl.searchParams;
     const limit = parseInt(searchParams.get("limit") || "20");

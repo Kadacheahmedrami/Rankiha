@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/lib/auth";
 import { prisma } from "@/prisma/prismaClient";
-
+import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 export async function POST(req: NextRequest) {
   try {
     // Get the current session to verify the user is authenticated
@@ -12,6 +12,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { message: "You must be logged in to report a comment" },
         { status: 401 }
+      );
+    }
+    if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
+      return NextResponse.json(
+        { message: "You are banned little guy cannt report" },
+        { status: 403 }
       );
     }
 

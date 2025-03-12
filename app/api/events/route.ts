@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     // 🚫 2. Blacklist Check (Block specific users)
     if (BLACKLISTED_EMAILS.includes(session.user.email)) {
       return NextResponse.json(
-        { error: "Forbidden: You are not allowed to access this resource" },
+        { error: "you are banned little guy" },
         { status: 403 } // 403 = Forbidden
       );
     }

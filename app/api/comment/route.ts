@@ -27,7 +27,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
       return NextResponse.json(
-        { error: "Access denied" },
+        { error: "you are banned little guy " },
         { status: 403 }
       );
     }

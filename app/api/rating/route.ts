@@ -30,7 +30,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Block access if the authenticated user's email is blacklisted
     if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
-      return NextResponse.json({ error: "swwa ta3 mouk" }, { status: 403 });
+      return NextResponse.json({ error: "you are banned little guy" }, { status: 403 });
     }
 
     // Upsert the authenticated user to guarantee they exist in the DB
