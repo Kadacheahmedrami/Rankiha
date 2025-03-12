@@ -339,7 +339,7 @@ export default function Leaderboard() {
                   </div>
 
                   {/* Mobile layout: Bottom row with rating and buttons */}
-                  <div className="flex items-center  justify-end flex-row  md:flex-row  mt-2 w-full sm:mt-0 sm:ml-auto sm:w-auto sm:justify-end">
+                  <div className="flex items-center  justify-end flex-wrap gap-4  md:flex-row  mt-2 w-full sm:mt-0 sm:ml-auto sm:w-auto sm:justify-end">
                     <div className="flex items-center mr-auto gap-2">
                       <span className="font-bold text-sm">{profile.rating.toFixed(1)}</span>
                       <RatingStars
@@ -365,7 +365,7 @@ export default function Leaderboard() {
                         onClick={() => handleOpenCommentModal(profile)}
                       >
                         <MessageSquare className="h-3 w-3 text-primary group-hover:text-primary/80" />
-                        <span>Comment</span>
+                        
                       </Button>
                       <Link href={`/profile/${profile.id}`}>
                         <Button
