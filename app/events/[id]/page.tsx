@@ -144,28 +144,7 @@ export default async function EventDetailsPage({
           </div>
         </Card>
 
-        {/* Mobile-first layout - Rankings appear above status on mobile */}
-        <div className="md:hidden mb-6">
-          <Card className="shadow-sm hover:shadow transition-shadow duration-200 overflow-hidden">
-            <CardHeader className="p-4 pb-2 bg-gradient-to-r from-muted/50 to-background">
-              <CardTitle className="text-xl flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-primary" />
-                Current Rankings
-              </CardTitle>
-              <CardDescription>See how articles are currently ranked</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
-                <LeaderboardWithStars
-                  data={leaderboard.data}
-                  sessionUserId={session.user.id}
-                  disableRating={disableRating}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
+      
         {/* Status Card */}
         <Card className="mb-6 hidden md:block shadow-sm hover:shadow transition-shadow duration-200">
           <CardContent className="p-4 space-y-4">
@@ -212,27 +191,55 @@ export default async function EventDetailsPage({
           </CardContent>
         </Card>
 
-        {/* Desktop Rankings - Hidden on mobile */}
-        <div className="hidden md:block">
-          <Card className="shadow-sm hover:shadow transition-shadow duration-200 overflow-hidden">
-            <CardHeader className="p-4 pb-2 bg-gradient-to-r from-muted/50 to-background">
-              <CardTitle className="text-xl flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-primary" />
-                Current Rankings
-              </CardTitle>
-              <CardDescription>See how articles are currently ranked</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
-                <LeaderboardWithStars
-                  data={leaderboard.data}
-                  sessionUserId={session.user.id}
-                  disableRating={disableRating}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Rankings are only visible if the event is not upcoming */}
+        {dynamicStatus !== "upcoming" && (
+          <>
+            {/* Mobile-first layout - Rankings appear above status on mobile */}
+            <div className="md:hidden mb-6">
+              <Card className="shadow-sm hover:shadow transition-shadow duration-200 overflow-hidden">
+                <CardHeader className="p-4 pb-2 bg-gradient-to-r from-muted/50 to-background">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <Trophy className="h-5 w-5 text-primary" />
+                    Current Rankings
+                  </CardTitle>
+                  <CardDescription>See how articles are currently ranked</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                    <LeaderboardWithStars
+                      data={leaderboard.data}
+                      sessionUserId={session.user.id}
+                      disableRating={disableRating}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Desktop Rankings - Hidden on mobile */}
+            <div className="hidden md:block">
+              <Card className="shadow-sm hover:shadow transition-shadow duration-200 overflow-hidden">
+                <CardHeader className="p-4 pb-2 bg-gradient-to-r from-muted/50 to-background">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <Trophy className="h-5 w-5 text-primary" />
+                    Current Rankings
+                  </CardTitle>
+                  <CardDescription>See how articles are currently ranked</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                    <LeaderboardWithStars
+                      data={leaderboard.data}
+                      sessionUserId={session.user.id}
+                      disableRating={disableRating}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
+
       </div>
     </AppLayout>
   )

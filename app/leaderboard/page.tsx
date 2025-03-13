@@ -3,7 +3,7 @@ import Leaderboard from "@/components/Leaderboard";
 import { redirect } from "next/navigation";
 import { getServerAuthSession } from "@/app/lib/auth";
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist"
-
+import ActiveEvent from "@/components/slect-active-event"
 
 export default async function LeaderboardPage() {
   const session = await getServerAuthSession();
@@ -19,6 +19,7 @@ export default async function LeaderboardPage() {
 
   return (
     <AppLayout>
+      <ActiveEvent></ActiveEvent>
       <Leaderboard />
     </AppLayout>
   );
