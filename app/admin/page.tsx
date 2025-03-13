@@ -141,9 +141,7 @@ export default function AdminLogin() {
                   </div>
                 </form>
                 
-                <div className="text-center text-xs text-muted-foreground">
-                  <p>Forgot credentials? Contact <span className="text-primary">admin@rankiha.com</span></p>
-                </div>
+              
               </CardContent>
             </Card>
           </div>
