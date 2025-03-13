@@ -48,7 +48,7 @@ export default function Leaderboard() {
         return "bg-gradient-to-r from-primary to-purple-500 text-white px-2 py-0.5 text-xs rounded-full shadow-lg transform hover:scale-105 transition duration-300"
       case "PROFESSOR":
         return "bg-gradient-to-r from-primary/80 to-secondary/80 text-white px-2 py-0.5 text-xs rounded-full shadow-lg transform hover:rotate-3 transition duration-300"
-      case "BANNED":
+      case "Hacker":
         return "bg-red-500 text-white px-2 py-0.5 text-xs rounded-full border-2 border-dashed border-yellow-300 font-extrabold animate-pulse"
       default:
         return "bg-secondary/20 text-primary px-2 py-0.5 text-xs rounded-full"
