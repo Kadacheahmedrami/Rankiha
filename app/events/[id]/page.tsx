@@ -107,6 +107,9 @@ export default async function EventDetailsPage({
         ? 100
         : 0
 
+  // Determine if rating should be disabled
+  const disableRating = dynamicStatus === "completed"
+
   // --- Render Page ---
   return (
     <AppLayout>
@@ -152,15 +155,19 @@ export default async function EventDetailsPage({
               <CardDescription>See how articles are currently ranked</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="p-4  overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
-                <LeaderboardWithStars data={leaderboard.data} sessionUserId={session.user.id} />
+              <div className="p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                <LeaderboardWithStars
+                  data={leaderboard.data}
+                  sessionUserId={session.user.id}
+                  disableRating={disableRating}
+                />
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Status Card */}
-        <Card className="mb-6  hidden md:block shadow-sm hover:shadow transition-shadow duration-200">
+        <Card className="mb-6 hidden md:block shadow-sm hover:shadow transition-shadow duration-200">
           <CardContent className="p-4 space-y-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
@@ -216,8 +223,12 @@ export default async function EventDetailsPage({
               <CardDescription>See how articles are currently ranked</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="p-4  overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
-                <LeaderboardWithStars data={leaderboard.data} sessionUserId={session.user.id} />
+              <div className="p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                <LeaderboardWithStars
+                  data={leaderboard.data}
+                  sessionUserId={session.user.id}
+                  disableRating={disableRating}
+                />
               </div>
             </CardContent>
           </Card>
@@ -226,4 +237,3 @@ export default async function EventDetailsPage({
     </AppLayout>
   )
 }
-

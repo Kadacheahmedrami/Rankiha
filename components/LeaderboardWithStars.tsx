@@ -21,9 +21,10 @@ type ArticleLeaderboardItem = {
 type LeaderboardWithStarsProps = {
   data: ArticleLeaderboardItem[]
   sessionUserId: string
+  disableRating?: boolean
 }
 
-export default function LeaderboardWithStars({ data, sessionUserId }: LeaderboardWithStarsProps) {
+export default function LeaderboardWithStars({ data, sessionUserId, disableRating = false }: LeaderboardWithStarsProps) {
   const [leaderboardData, setLeaderboardData] = useState<ArticleLeaderboardItem[]>(data)
   const [isMobile, setIsMobile] = useState(false)
   const { toast } = useToast()
@@ -43,11 +44,12 @@ export default function LeaderboardWithStars({ data, sessionUserId }: Leaderboar
   }, [])
 
   const handleRatingChange = async (article: ArticleLeaderboardItem, newRating: number): Promise<void> => {
+    if (disableRating) return // Rating is disabled, so do nothing
+
     try {
       const response = await fetch("/api/rating-article", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Updated: using ratedArticleId to match the API route
         body: JSON.stringify({ ratedArticleId: article.id, value: newRating }),
       })
 
@@ -143,10 +145,7 @@ export default function LeaderboardWithStars({ data, sessionUserId }: Leaderboar
                     </div>
 
                     {article.change !== "same" && (
-                      <Badge
-                      
-                        className="flex items-center gap-1"
-                      >
+                      <Badge className="flex items-center gap-1">
                         {article.change === "up" ? (
                           <>
                             <ArrowUp className="h-3 w-3" />
@@ -173,10 +172,10 @@ export default function LeaderboardWithStars({ data, sessionUserId }: Leaderboar
 
                     <RatingStars
                       initialRating={article.rating}
-                      displayOnly={false}
+                      displayOnly={disableRating ? true : false}
                       size="sm"
                       profileId={article.id}
-                      disableSelfRating={false}
+                      disableSelfRating={disableRating ? true : false}
                       onRate={(newRating: number) => handleRatingChange(article, newRating)}
                     />
                   </div>
@@ -230,10 +229,10 @@ export default function LeaderboardWithStars({ data, sessionUserId }: Leaderboar
                       <span className="font-bold">{article.rating.toFixed(1)}</span>
                       <RatingStars
                         initialRating={article.rating}
-                        displayOnly={false}
-                        
+                        displayOnly={disableRating ? true : false}
+                        size="sm"
                         profileId={article.id}
-                        disableSelfRating={false}
+                        disableSelfRating={disableRating ? true : false}
                         onRate={(newRating: number) => handleRatingChange(article, newRating)}
                       />
                       <span className="text-xs text-muted-foreground">({article.ratingsCount})</span>
@@ -248,4 +247,3 @@ export default function LeaderboardWithStars({ data, sessionUserId }: Leaderboar
     </div>
   )
 }
-
