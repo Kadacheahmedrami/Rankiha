@@ -1,6 +1,9 @@
 {
-    "crons": [{
-      "path": "/api/cron",
-      "schedule": "*/1 * * * *"
-    }]
-  } 
+    "crons": [
+      {
+        "path": "/api/cron/deleteDisabledUsers",
+        "schedule": "0 * * * *"
+      }
+    ]
+  }
+  
