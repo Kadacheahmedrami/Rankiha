@@ -43,7 +43,7 @@ export type Profile = {
   username: string
   bio: string
   location: string
-  joinedDate: string
+
   rating: number
   totalRatings: number
   ratingDistribution: number[]
@@ -275,10 +275,7 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
                       <MapPin className="h-4 w-4 text-primary" />
                       <span>{profile.location || "Estin"}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="h-4 w-4 text-primary" />
-                      <span>Joined {profile.joinedDate || "N/A"}</span>
-                    </div>
+               
                   </div>
                 </div>
               </CardContent>
