@@ -125,7 +125,9 @@ export default function ImageCard({ post, onVote }: ImageCardProps) {
         </div>
       </div>
       <CardContent className="p-4 flex-grow">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center justify-between space-x-4">
+          {/* Post title */}
+          <h3 className="font-semibold text-lg line-clamp-2">{post.title}</h3>
           {/* Voting controls */}
           <div className="flex items-center rounded-full bg-slate-800 gap-2 p-2">
             <button
@@ -166,8 +168,6 @@ export default function ImageCard({ post, onVote }: ImageCardProps) {
               <ArrowBigDown className="h-6 w-6" />
             </button>
           </div>
-          {/* Post title */}
-          <h3 className="font-semibold text-lg line-clamp-2">{post.title}</h3>
         </div>
       </CardContent>
     </Card>
