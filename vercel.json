@@ -1,9 +1,0 @@
-{
-    "crons": [
-      {
-        "path": "/api/cron/deleteDisabledUsers",
-        "schedule": "0 * * * *"
-      }
-    ]
-  }
-  
