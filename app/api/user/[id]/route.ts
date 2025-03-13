@@ -81,8 +81,7 @@ export async function GET(
       username,
       bio: "", // Default value as no bio field exists.
       location: "", // Default value as no location field exists.
-      joinedDate: user.createdAt.toISOString(),
-      rating: parseFloat(averageRating.toFixed(1)),
+      rating: parseFloat(averageRating.toFixed(2)),
       totalRatings,
       ratingDistribution: distribution,
       comments: formattedComments,
