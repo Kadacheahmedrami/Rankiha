@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
         downvotes,
         voteScore: upvotes - downvotes,
         totalVotes: post._count.votes,
+        createdAt: post.createdAt,
       };
     });
 

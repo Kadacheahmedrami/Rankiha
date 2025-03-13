@@ -1,295 +1,393 @@
-"use client"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { MessageSquare, Flag } from "lucide-react"
-import Link from "next/link"
-import { useEffect, useState, useRef } from "react"
-import { useSession } from "next-auth/react"
-import toast from "react-hot-toast"
+"use client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MessageSquare, Flag, ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState, useRef } from "react";
+import { useSession } from "next-auth/react";
+import toast from "react-hot-toast";
 
 // Interface for Comment
 interface Comment {
-  id: string
-  content: string
-  createdAt: string
+  id: string;
+  content: string;
+  createdAt: string;
   targetUser: {
-    id: string
-    name: string
-    email: string
-  }
+    id: string;
+    name: string;
+    email: string;
+  };
 }
 
-export default function CommentFeed() {
-  const { data: session } = useSession()
-  const [comments, setComments] = useState<Comment[]>([])
-  const [page, setPage] = useState<number>(1)
-  const [limit] = useState<number>(20)
-  const [totalPages, setTotalPages] = useState<number>(1)
-  const [isLoading, setIsLoading] = useState<boolean>(true)
-  const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false)
-  const [reportingCommentId, setReportingCommentId] = useState<string | null>(null)
+// Interface for Post
+interface Post {
+  id: string;
+  title: string;
+  imageUrl: string;
+  createdAt: string;
 
-  const loaderRef = useRef<HTMLDivElement>(null)
+}
 
-  // Fetch comments feed with pagination
-  const fetchCommentsFeed = async (): Promise<void> => {
+export default function Feed() {
+  const { data: session } = useSession();
+
+  // State for Comments
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsPage, setCommentsPage] = useState<number>(1);
+  const [commentsTotalPages, setCommentsTotalPages] = useState<number>(1);
+  const [isLoadingComments, setIsLoadingComments] = useState<boolean>(false);
+  const [isLoadingMoreComments, setIsLoadingMoreComments] = useState<boolean>(false);
+
+  // State for Posts
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [postsPage, setPostsPage] = useState<number>(1);
+  const [postsTotalPages, setPostsTotalPages] = useState<number>(1);
+  const [isLoadingPosts, setIsLoadingPosts] = useState<boolean>(false);
+  const [isLoadingMorePosts, setIsLoadingMorePosts] = useState<boolean>(false);
+
+  // Refs for infinite scrolling
+  const postsLoaderRef = useRef<HTMLDivElement>(null);
+  const commentsLoaderRef = useRef<HTMLDivElement>(null);
+
+  // Fetch posts from API
+  const fetchPosts = async (): Promise<void> => {
     try {
-      setIsLoading(true)
-      const queryParams = new URLSearchParams()
-      queryParams.append("page", page.toString())
-      queryParams.append("limit", limit.toString())
-      const query = "?" + queryParams.toString()
-
-      const res = await fetch(`/api/commentfeed${query}`)
-      if (!res.ok) {
-        console.error("Error fetching comments:", res.statusText)
-        setIsLoading(false)
-        return
-      }
-
-      const json = await res.json()
-
-      // If we're on page 1, replace the comments; otherwise, append new results
-      if (page === 1) {
-        setComments(json.data)
+      if (postsPage === 1) {
+        setIsLoadingPosts(true);
       } else {
-        setComments((prev) => [...prev, ...json.data])
+        setIsLoadingMorePosts(true);
       }
 
-      setTotalPages(json.pagination.totalPages)
-      setIsFetchingMore(false)
-      setIsLoading(false)
-    } catch (error) {
-      console.error("Error fetching comments:", error)
-      setIsFetchingMore(false)
-      setIsLoading(false)
-    }
-  }
-
-  // Handle reporting a comment with a loading toast
-  const handleReportComment = async (commentId: string) => {
-    if (!session?.user?.id) {
-      toast.error("You must be logged in to report a comment")
-      return
-    }
-
-    let loadingToastId: string | undefined
-    try {
-      setReportingCommentId(commentId)
-      loadingToastId = toast.loading("Reporting comment...")
-      const response = await fetch("/api/report", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          reporterUserId: session.user.id,
-          commentId: commentId,
-          timestamp: new Date().toISOString(),
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || "Failed to report comment")
+      const params = new URLSearchParams();
+      params.append("postsPage", postsPage.toString());
+      params.append("postsLimit", "10");
+      const res = await fetch(`/api/feed?${params.toString()}`);
+      if (!res.ok) {
+        console.error("Error fetching posts:", res.statusText);
+        toast.error("Failed to load posts");
+        return;
       }
-
-      toast.dismiss(loadingToastId)
-      toast.success("Comment reported successfully")
+      const json = await res.json();
+      if (postsPage === 1) {
+        setPosts(json.posts.data);
+      } else {
+        setPosts((prev) => [...prev, ...json.posts.data]);
+      }
+      setPostsTotalPages(json.posts.pagination.totalPages);
     } catch (error) {
-      console.error("Error reporting comment:", error)
-      if (loadingToastId) toast.dismiss(loadingToastId)
-      toast.error("Failed to report comment. Please try again.")
+      console.error("Error fetching posts:", error);
+      toast.error("Failed to load posts");
     } finally {
-      setReportingCommentId(null)
+      setIsLoadingPosts(false);
+      setIsLoadingMorePosts(false);
     }
-  }
+  };
 
-  // Format date to a more readable format
+  // Fetch comments from API
+  const fetchComments = async (): Promise<void> => {
+    try {
+      if (commentsPage === 1) {
+        setIsLoadingComments(true);
+      } else {
+        setIsLoadingMoreComments(true);
+      }
+
+      const params = new URLSearchParams();
+      params.append("commentsPage", commentsPage.toString());
+      params.append("commentsLimit", "20");
+      const res = await fetch(`/api/feed?${params.toString()}`);
+      if (!res.ok) {
+        console.error("Error fetching comments:", res.statusText);
+        toast.error("Failed to load comments");
+        return;
+      }
+      const json = await res.json();
+      if (commentsPage === 1) {
+        setComments(json.comments.data);
+      } else {
+        setComments((prev) => [...prev, ...json.comments.data]);
+      }
+      setCommentsTotalPages(json.comments.pagination.totalPages);
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      toast.error("Failed to load comments");
+    } finally {
+      setIsLoadingComments(false);
+      setIsLoadingMoreComments(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts();
+  }, [postsPage]);
+
+  useEffect(() => {
+    fetchComments();
+  }, [commentsPage]);
+
+  // Intersection Observer for Posts (horizontal)
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (
+          entry.isIntersecting &&
+          !isLoadingPosts &&
+          !isLoadingMorePosts &&
+          postsPage < postsTotalPages
+        ) {
+          setPostsPage((prev) => prev + 1);
+        }
+      },
+      { rootMargin: "100px" }
+    );
+    if (postsLoaderRef.current) {
+      observer.observe(postsLoaderRef.current);
+    }
+    return () => {
+      if (postsLoaderRef.current) {
+        observer.unobserve(postsLoaderRef.current);
+      }
+    };
+  }, [isLoadingPosts, isLoadingMorePosts, postsPage, postsTotalPages]);
+
+  // Intersection Observer for Comments (vertical)
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (
+          entry.isIntersecting &&
+          !isLoadingComments &&
+          !isLoadingMoreComments &&
+          commentsPage < commentsTotalPages
+        ) {
+          setCommentsPage((prev) => prev + 1);
+        }
+      },
+      { rootMargin: "100px" }
+    );
+    if (commentsLoaderRef.current) {
+      observer.observe(commentsLoaderRef.current);
+    }
+    return () => {
+      if (commentsLoaderRef.current) {
+        observer.unobserve(commentsLoaderRef.current);
+      }
+    };
+  }, [isLoadingComments, isLoadingMoreComments, commentsPage, commentsTotalPages]);
+
+  // Helper to format date
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
+    const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    })
-  }
+    });
+  };
 
-  // Fetch comments feed on initial load and when page changes
-  useEffect(() => {
-    fetchCommentsFeed()
-  }, [page])
+  // Skeleton loaders for posts
+  const PostSkeleton = () => (
+    <div className="min-w-[250px] sm:min-w-[300px] animate-pulse bg-secondary/20 p-4 rounded-lg border border-border/10">
+      <div className="h-6 w-3/4 bg-secondary/40 rounded mb-4"></div>
+      <div className="w-full h-40 bg-secondary/40 rounded mb-2"></div>
+      <div className="h-4 w-1/3 bg-secondary/40 rounded"></div>
+    </div>
+  );
 
-  // Set up intersection observer for infinite scrolling
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries
-        if (entry.isIntersecting && !isLoading && !isFetchingMore && page < totalPages) {
-          setIsFetchingMore(true)
-          setPage((prev) => prev + 1)
-        }
-      },
-      { threshold: 0.1 }
-    )
-
-    const currentLoaderRef = loaderRef.current
-    if (currentLoaderRef) {
-      observer.observe(currentLoaderRef)
-    }
-
-    return () => {
-      if (currentLoaderRef) {
-        observer.unobserve(currentLoaderRef)
-      }
-    }
-  }, [isLoading, isFetchingMore, page, totalPages])
+  // Skeleton loaders for comments
+  const CommentSkeleton = () => (
+    <div className="p-6 animate-pulse">
+      <div className="flex items-start">
+        <div className="flex-1">
+          <div className="flex justify-between items-start mb-3">
+            <div className="h-5 w-1/3 bg-secondary/40 rounded"></div>
+            <div className="h-4 w-1/4 bg-secondary/40 rounded"></div>
+          </div>
+          <div className="bg-secondary/20 p-4 rounded-lg border border-border/10">
+            <div className="h-4 w-full bg-secondary/40 rounded mb-2"></div>
+            <div className="h-4 w-3/4 bg-secondary/40 rounded"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="flex flex-col gap-3 mb-6">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight glow-text bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
-          Comment Feed
-        </h1>
+    <div className="container mx-auto sm:py-8 max-w-6xl">
+ 
+      {/* Posts Section - Horizontal Scroll with Infinite Loading */}
+      <div className="mb-6 sm:mb-8">
+        <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-b from-background to-secondary/10 p-2 sm:p-4">
+          <CardHeader className="pb-2 sm:pb-4 border-b border-border/20">
+            <CardTitle className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
+              Latest Posts
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-base">
+              See what people are posting
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-2 sm:p-4">
+            {isLoadingPosts && postsPage === 1 ? (
+              <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
+                {[...Array(3)].map((_, i) => (
+                  <PostSkeleton key={i} />
+                ))}
+              </div>
+            ) : posts.length > 0 ? (
+              <div className="relative">
+                <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
+                  {posts.map((post) => (
+                    <div
+                      key={post.id}
+                      className="min-w-[250px] sm:min-w-[300px] bg-secondary/20 p-4 rounded-lg border border-border/10 hover:bg-secondary/30 transition-all duration-300 snap-start"
+                    >
+                      <h3 className="text-base sm:text-lg font-bold mb-2 line-clamp-2">
+                        {post.title}
+                      </h3>
+                      {post.imageUrl && (
+                        <img
+                          src={post.imageUrl || "/placeholder.svg"}
+                          alt={post.title}
+                          className="w-full h-32 sm:h-40 object-cover rounded mb-2"
+                          loading="lazy"
+                        />
+                      )}
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          {formatDate(post.createdAt)}
+                        </p>
+                   
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={postsLoaderRef} className="w-8 flex-shrink-0" />
+                </div>
+
+                {/* Loading indicator for more posts */}
+                {isLoadingMorePosts && (
+                  <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-1">
+                    <div className="flex items-center justify-center space-x-1 text-xs text-primary">
+                      <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]"></div>
+                      <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]"></div>
+                      <div className="h-2 w-2 rounded-full bg-primary animate-bounce"></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Scroll indicators */}
+                <div className="hidden sm:block absolute top-1/2 right-0 transform -translate-y-1/2 bg-gradient-to-l from-background to-transparent w-12 h-full pointer-events-none"></div>
+              </div>
+            ) : (
+              <p className="text-center py-6 text-muted-foreground">No posts available.</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-b from-background to-secondary/10">
-        <CardHeader className="pb-4 border-b border-border/20">
-          <CardTitle className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
-            Latest Comments
-          </CardTitle>
-          <CardDescription className="text-sm sm:text-base">
-            See what people are saying about each other
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading && page === 1 ? (
-            <div className="flex justify-center items-center p-12">
-              <div className="animate-pulse text-center">
-                <MessageSquare className="h-12 w-12 text-primary/40 mx-auto mb-4" />
-                <p className="text-muted-foreground">Loading comments...</p>
+      {/* Comments Section - Vertical Scroll with Infinite Loading */}
+      <div>
+        <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-b from-background to-secondary/10">
+          <CardHeader className="pb-2 sm:pb-4 border-b border-border/20">
+            <CardTitle className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
+              Latest Comments
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-base">
+              See what people are saying about each other
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            {isLoadingComments && commentsPage === 1 ? (
+              <div className="divide-y divide-border/20">
+                {[...Array(3)].map((_, i) => (
+                  <CommentSkeleton key={i} />
+                ))}
               </div>
-            </div>
-          ) : comments.length > 0 ? (
-            <div>
-              {comments.map((comment) => (
-                <div
-                  key={comment.id}
-                  className="p-6 border-b border-border/20 hover:bg-secondary/20 transition-all duration-300"
-                >
-                  <div className="flex items-start gap-4">
+            ) : comments.length > 0 ? (
+              <div className="divide-y divide-border/20">
+                {comments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="p-4 sm:p-6 hover:bg-secondary/20 transition-all duration-300 flex items-start"
+                  >
+                    {/* Profile Image Placeholder */}
+             
                     <div className="flex-1">
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-3">
                         <div className="flex items-center flex-wrap">
-                          <span className="mx-2 text-muted-foreground flex items-center">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M5 12h14"></path>
-                              <path d="M12 5l7 7-7 7"></path>
-                            </svg>
+                          <span className="mx-1 sm:mx-2 text-muted-foreground flex items-center">
+                            <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
                           </span>
                           <Link
                             href={`/profile/${comment.targetUser.id}`}
-                            className="font-bold text-lg hover:underline"
+                            className="font-bold text-base sm:text-lg hover:underline"
                           >
                             {comment.targetUser.name}
                           </Link>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm text-muted-foreground">{formatDate(comment.createdAt)}</span>
+                        <div className="flex items-center gap-2 sm:gap-4">
+                          <span className="text-xs sm:text-sm text-muted-foreground">
+                            {formatDate(comment.createdAt)}
+                          </span>
                           <button
-                            onClick={() => handleReportComment(comment.id)}
-                            disabled={reportingCommentId === comment.id}
+                            onClick={() => toast.error("Report feature not implemented")}
                             className="text-muted-foreground hover:text-destructive transition-colors duration-200 flex items-center"
                             title="Report this comment"
                             aria-label="Report comment"
                           >
-                            {reportingCommentId === comment.id ? (
-                              <svg
-                                className="animate-spin h-4 w-4"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                ></circle>
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                ></path>
-                              </svg>
-                            ) : (
-                              <Flag className="h-4 w-4" />
-                            )}
+                            <Flag className="h-3 w-3 sm:h-4 sm:w-4" />
                           </button>
                         </div>
                       </div>
-
-                      <div className="bg-secondary/20 p-4 rounded-lg border border-border/10">
-                        <p className="text-base sm:text-lg">{comment.content}</p>
+                      <div className="bg-secondary/20 p-3 sm:p-4 rounded-lg border border-border/10">
+                        <p className="text-sm sm:text-base">{comment.content}</p>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+                <div ref={commentsLoaderRef} className="h-8" />
 
-              {page < totalPages && (
-                <div ref={loaderRef} className="p-6 text-center">
-                  {isFetchingMore && (
-                    <div className="flex items-center justify-center gap-2">
-                      <svg
-                        className="animate-spin h-5 w-5 text-primary"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      <span>Loading more comments...</span>
+                {/* Loading indicator for more comments */}
+                {isLoadingMoreComments && (
+                  <div className="py-4 flex justify-center">
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]"></div>
+                      <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]"></div>
+                      <div className="h-2 w-2 rounded-full bg-primary animate-bounce"></div>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-12 text-center">
-              <MessageSquare className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-              <h3 className="text-xl font-medium mb-2">No comments yet</h3>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                There are no comments to display at the moment. Check back later!
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-8 sm:p-12 text-center">
+                <MessageSquare className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg sm:text-xl font-medium mb-2">No comments yet</h3>
+                <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto">
+                  There are no comments to display at the moment. Check back later!
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
-  )
+  );
 }
+
+const CommentSkeleton = () => (
+  <div className="p-6 animate-pulse">
+    <div className="flex items-start">
+      <div className="flex-1">
+        <div className="flex justify-between items-start mb-3">
+          <div className="h-5 w-1/3 bg-secondary/40 rounded"></div>
+          <div className="h-4 w-1/4 bg-secondary/40 rounded"></div>
+        </div>
+        <div className="bg-secondary/20 p-4 rounded-lg border border-border/10">
+          <div className="h-4 w-full bg-secondary/40 rounded mb-2"></div>
+          <div className="h-4 w-3/4 bg-secondary/40 rounded"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+);

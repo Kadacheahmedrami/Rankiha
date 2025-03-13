@@ -198,6 +198,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <span>Events</span>
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/postiha" className="cursor-pointer">
+                    <Images className="mr-2 h-4 w-4" />
+                    <span>postiha</span>
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
