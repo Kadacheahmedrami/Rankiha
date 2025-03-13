@@ -52,8 +52,8 @@ export async function GET(req: NextRequest) {
   await logHoneypotRequest(req);
   // Return a 404 status to appear more realistic
   return NextResponse.json(
-    { message: "Resource not found" },
-    { status: 404 }
+    { message: "Unauthorized nigga" },
+    { status: 401 }
   );
 }
 
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   await logHoneypotRequest(req);
   return NextResponse.json(
-    { message: "Method not allowed" },
+    { message: "haha nice try nigga" },
     { status: 405 }
   );
 }
