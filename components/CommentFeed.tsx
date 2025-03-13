@@ -1,5 +1,12 @@
 "use client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Image from "next/image";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { MessageSquare, Flag, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
@@ -24,7 +31,6 @@ interface Post {
   title: string;
   imageUrl: string;
   createdAt: string;
-
 }
 
 export default function Feed() {
@@ -56,7 +62,6 @@ export default function Feed() {
       } else {
         setIsLoadingMorePosts(true);
       }
-
       const params = new URLSearchParams();
       params.append("postsPage", postsPage.toString());
       params.append("postsLimit", "10");
@@ -90,7 +95,6 @@ export default function Feed() {
       } else {
         setIsLoadingMoreComments(true);
       }
-
       const params = new URLSearchParams();
       params.append("commentsPage", commentsPage.toString());
       params.append("commentsLimit", "20");
@@ -187,16 +191,16 @@ export default function Feed() {
     });
   };
 
-  // Skeleton loaders for posts
+  // Skeleton loader for posts
   const PostSkeleton = () => (
-    <div className="min-w-[250px] sm:min-w-[300px] animate-pulse bg-secondary/20 p-4 rounded-lg border border-border/10">
+    <div className="w-[300px] flex-none animate-pulse bg-secondary/20 p-4 rounded-lg border border-border/10">
       <div className="h-6 w-3/4 bg-secondary/40 rounded mb-4"></div>
-      <div className="w-full h-40 bg-secondary/40 rounded mb-2"></div>
+      <div className="w-full h-48 bg-secondary/40 rounded mb-2"></div>
       <div className="h-4 w-1/3 bg-secondary/40 rounded"></div>
     </div>
   );
 
-  // Skeleton loaders for comments
+  // Skeleton loader for comments
   const CommentSkeleton = () => (
     <div className="p-6 animate-pulse">
       <div className="flex items-start">
@@ -216,8 +220,7 @@ export default function Feed() {
 
   return (
     <div className="container mx-auto sm:py-8 max-w-6xl">
- 
-      {/* Posts Section - Horizontal Scroll with Infinite Loading */}
+      {/* Posts Section - Horizontal Scroll */}
       <div className="mb-6 sm:mb-8">
         <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-b from-background to-secondary/10 p-2 sm:p-4">
           <CardHeader className="pb-2 sm:pb-4 border-b border-border/20">
@@ -241,31 +244,31 @@ export default function Feed() {
                   {posts.map((post) => (
                     <div
                       key={post.id}
-                      className="min-w-[250px] sm:min-w-[300px] bg-secondary/20 p-4 rounded-lg border border-border/10 hover:bg-secondary/30 transition-all duration-300 snap-start"
+                      className="w-[300px] flex-none bg-secondary/20 p-4 rounded-lg border border-border/10 hover:bg-secondary/30 transition-all duration-300 snap-start"
                     >
-                      <h3 className="text-base sm:text-lg font-bold mb-2 line-clamp-2">
+                      <h3 className="text-base  sm:text-lg font-bold mb-2 line-clamp-1">
                         {post.title}
                       </h3>
                       {post.imageUrl && (
-                        <img
-                          src={post.imageUrl || "/placeholder.svg"}
-                          alt={post.title}
-                          className="w-full h-32 sm:h-40 object-cover rounded mb-2"
-                          loading="lazy"
-                        />
+                        <div className="relative w-full aspect-square overflow-hidden">
+                          <Image
+                            src={post.imageUrl || "/placeholder.svg?height=400&width=400"}
+                            alt={post.title}
+                            fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
+                            className="object-cover transition-opacity duration-500 ease-in-out"
+                          />
+                        </div>
                       )}
-                      <div className="flex justify-between items-center">
+                      <div className="flex justify-between items-center mt-2">
                         <p className="text-xs sm:text-sm text-muted-foreground">
                           {formatDate(post.createdAt)}
                         </p>
-                   
                       </div>
                     </div>
                   ))}
                   <div ref={postsLoaderRef} className="w-8 flex-shrink-0" />
                 </div>
-
-                {/* Loading indicator for more posts */}
                 {isLoadingMorePosts && (
                   <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-1">
                     <div className="flex items-center justify-center space-x-1 text-xs text-primary">
@@ -275,18 +278,18 @@ export default function Feed() {
                     </div>
                   </div>
                 )}
-
-                {/* Scroll indicators */}
                 <div className="hidden sm:block absolute top-1/2 right-0 transform -translate-y-1/2 bg-gradient-to-l from-background to-transparent w-12 h-full pointer-events-none"></div>
               </div>
             ) : (
-              <p className="text-center py-6 text-muted-foreground">No posts available.</p>
+              <p className="text-center py-6 text-muted-foreground">
+                No posts available.
+              </p>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Comments Section - Vertical Scroll with Infinite Loading */}
+      {/* Comments Section - Vertical Scroll */}
       <div>
         <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-b from-background to-secondary/10">
           <CardHeader className="pb-2 sm:pb-4 border-b border-border/20">
@@ -311,8 +314,6 @@ export default function Feed() {
                     key={comment.id}
                     className="p-4 sm:p-6 hover:bg-secondary/20 transition-all duration-300 flex items-start"
                   >
-                    {/* Profile Image Placeholder */}
-             
                     <div className="flex-1">
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-3">
                         <div className="flex items-center flex-wrap">
@@ -347,8 +348,6 @@ export default function Feed() {
                   </div>
                 ))}
                 <div ref={commentsLoaderRef} className="h-8" />
-
-                {/* Loading indicator for more comments */}
                 {isLoadingMoreComments && (
                   <div className="py-4 flex justify-center">
                     <div className="flex items-center justify-center space-x-2">
