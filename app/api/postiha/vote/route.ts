@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
       return NextResponse.json(
-        { error: "You are banned from this action" },
+        { error: "You are banned little gut" },
         { status: 403 }
       );
     }

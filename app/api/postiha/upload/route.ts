@@ -10,24 +10,27 @@ interface PostBody {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as PostBody;
-    if (!body.imgUrl) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-    if (!body.title) {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 });
-    }
-
     const session = await getServerAuthSession();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
-      return NextResponse.json(
-        { error: "You are banned, little guy" },
-        { status: 403 }
-      );
-    }
+  
+    if (!session || !session.user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+  
+      if(session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)){
+        return NextResponse.json({ error: "you are banned little guy" }, { status: 403 });
+      }
+
+
+        
+      const body = (await request.json()) as PostBody;
+      if (!body.imgUrl) {
+        return NextResponse.json({ error: "No file provided" }, { status: 400 });
+      }
+      if (!body.title) {
+        return NextResponse.json({ error: "Title is required" }, { status: 400 });
+      }
+
+
     const user = await prisma.user.findUnique({
       where: {
         id: session.user.id,

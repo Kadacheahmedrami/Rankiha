@@ -6,14 +6,14 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerAuthSession();
 
-    if (!session?.user) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if(session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)){
       return NextResponse.json({ error: "you are banned little guy" }, { status: 403 });
     }
-    
+
     const searchParams = request.nextUrl.searchParams;
     const page = Number.parseInt(searchParams.get("page") || "1");
     const limit = Number.parseInt(searchParams.get("limit") || "20");
