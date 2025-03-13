@@ -68,10 +68,7 @@ export default function AdminLogin() {
               <CardHeader className="bg-black/50 border-b border-red-500/30">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-red-500">Admin Login</h2>
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                    <span className="text-xs text-yellow-500">Secure Area</span>
-                  </div>
+         
                 </div>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
