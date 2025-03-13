@@ -22,6 +22,7 @@ import {
   TrendingUp,
   User,
   Calendar,
+  Images,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -39,13 +40,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (pathname.includes("/leaderboard")) return "Leaderboard";
     if (pathname.includes("/events")) return "Events";
     if (pathname.includes("/feed")) return "Feed";
+    if (pathname.includes("/postiha")) return "Postiha";
     return "Dashboard"; // Default title
   };
 
   const navItems = [
-    { name: "Leaderboard", href: "/leaderboard", icon: <TrendingUp className="h-5 w-5" /> },
+    {
+      name: "Leaderboard",
+      href: "/leaderboard",
+      icon: <TrendingUp className="h-5 w-5" />,
+    },
     { name: "Profile", href: "/profile", icon: <User className="h-5 w-5" /> },
-    { name: "Feed", href: "/feed", icon: <MessageCircle className="h-5 w-5" /> },
+    {
+      name: "Feed",
+      href: "/feed",
+      icon: <MessageCircle className="h-5 w-5" />,
+    },
+    {
+      name: "Postiha",
+      href: "/postiha",
+      icon: <Images className="h-5 w-5" />,
+    },
     { name: "Events", href: "/events", icon: <Calendar className="h-5 w-5" /> },
   ];
 
@@ -60,21 +75,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <header className="border-b border-border/40 backdrop-blur-sm bg-background/80 fixed w-full z-10">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-          <div className="border-b hidden md:block border-border/40 p-4">
-              
-                  </div>
+            <div className="border-b hidden md:block border-border/40 p-4"></div>
             {/* Back Button for Profile Page (Mobile Only) */}
             {isProfilePage ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => router.back()}
-            >
-              <ArrowLeft className="h-5 w-5" /> {/* Smaller size */}
-              <span className="sr-only">Go back</span>
-            </Button>
-          ) : ( 
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                onClick={() => router.back()}
+              >
+                <ArrowLeft className="h-5 w-5" /> {/* Smaller size */}
+                <span className="sr-only">Go back</span>
+              </Button>
+            ) : (
               <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="md:hidden">
@@ -85,10 +98,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <SheetContent side="left" className="p-0">
                   <div className="flex flex-col h-full">
                     <div className="border-b border-border/40 p-4">
-                      <div className="flex items-center gap-2">
-                  
-                   
-                      </div>
+                      <div className="flex items-center gap-2"></div>
                     </div>
                     <nav className="flex-1 p-4">
                       <ul className="space-y-2">
@@ -124,12 +134,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </Sheet>
             )}
 
-            { (
+            {
               <Link href="/leaderboard" className="flex items-center gap-2">
                 <Star className="h-6 w-6 hidden md:block text-primary" />
-                <span className="text-xl font-bold tracking-tight hidden md:inline">Rankiha</span>
+                <span className="text-xl font-bold tracking-tight hidden md:inline">
+                  Rankiha
+                </span>
               </Link>
-            )}
+            }
           </div>
 
           {/* Dynamic Heading */}
@@ -150,7 +162,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-2">
-            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">

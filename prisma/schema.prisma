@@ -22,12 +22,12 @@ model User {
   createdAt      DateTime   @default(now())       // Timestamp when the user was created
   updatedAt      DateTime   @updatedAt            // Automatically updated timestamp on modification
   visible        Boolean    @default(false)       // Controls if the user is publicly visible
-  tag            String     @default("USER")  
+  tag            String     @default("USER")
   // NextAuth relations
   accounts       Account[]   // A user can have multiple authentication accounts
   sessions       Session[]   // A user can have multiple active sessions
- 
-  
+
+
 
   // Rating system relations
   ratingsGiven    Rating[]   @relation("RatedBy")    // Ratings given by this user
@@ -37,6 +37,10 @@ model User {
   commentsGiven    Comment[]  @relation("CommentsGiven")    // Comments authored by this user
   commentsReceived Comment[]  @relation("CommentsReceived") // Comments received by this user
   reportsMade      CommentReport[] @relation("ReportsMade") // Reports made by this user
+
+  Post Post[]
+
+  Vote Vote[]
 }
 
 model Account {
@@ -138,6 +142,56 @@ model CommentReport {
   comment        Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
   @@unique([reporterUserId, commentId])
+}
+
+// ==================================================================================
+// New Models: Posts and Votes
+// ==================================================================================
+model Post {
+  id              String    @id @default(cuid())
+  title           String
+  visible         Boolean   @default(true)
+  imageUrl        String   // Cloudinary URL for the post image
+
+  /* TODO: add content based posts */
+
+  upvotes         Int       @default(0) // Counter for upvotes
+  downvotes       Int       @default(0) // Counter for downvotes
+  authorId        String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  votes           Vote[]    // Relation to track individual votes
+
+  @@index([authorId])
+  @@map("posts")
+}
+
+// Vote model to track individual user votes
+model Vote {
+  id        String   @id @default(cuid())
+  value     Int      // 1 for upvote, -1 for downvote, no other values allowed
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // Ensure one vote per user per post
+  @@unique([userId, postId])
+
+  // Indexes for query performance
+  @@index([userId])
+  @@index([postId])
+  @@index([value]) // Add index on value for filtering by vote type
+
+  // Table name in database
+  @@map("votes")
 }
 
 // ==================================================================================
