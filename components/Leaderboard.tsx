@@ -51,7 +51,7 @@ export default function Leaderboard() {
       case "HACKER":
         return "bg-red-500 text-white px-2 py-0.5 text-xs rounded-full border-2 border-dashed border-yellow-300 font-extrabold animate-pulse"
           case "USER":
-        return "hidden"
+        return "hidden text-transparent "
       default:
         return "bg-secondary/20 text-primary px-2 py-0.5 text-xs rounded-full"
     }
