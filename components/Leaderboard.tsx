@@ -340,8 +340,8 @@ export default function Leaderboard() {
                   </div>
 
                   {/* Mobile layout: Bottom row with rating and buttons */}
-                  <div className="flex items-center  justify-end flex-wrap gap-4  md:flex-row  mt-2 w-full sm:mt-0 sm:ml-auto sm:w-auto sm:justify-end">
-                    <div className="flex items-center mr-auto gap-2">
+                  <div className="flex items-center  justify-end  flex-row-reverse gap-4  flex-wrap   md:flex-row  mt-2 w-full sm:mt-0 sm:ml-auto sm:w-auto sm:justify-end">
+                    <div className="flex items-center ml-auto ">
                       <span className="font-bold text-sm">{profile.rating.toFixed(2)}</span>
                       <RatingStars
                         initialRating={profile.rating}
