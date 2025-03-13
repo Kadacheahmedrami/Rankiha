@@ -3,7 +3,7 @@ CREATE TABLE "posts" (
     "id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "visible" BOOLEAN NOT NULL DEFAULT true,
-    "imageUrl" TEXT,
+    "imageUrl" TEXT NOT NULL,
     "upvotes" INTEGER NOT NULL DEFAULT 0,
     "downvotes" INTEGER NOT NULL DEFAULT 0,
     "authorId" TEXT NOT NULL,
@@ -33,6 +33,9 @@ CREATE INDEX "votes_userId_idx" ON "votes"("userId");
 
 -- CreateIndex
 CREATE INDEX "votes_postId_idx" ON "votes"("postId");
+
+-- CreateIndex
+CREATE INDEX "votes_value_idx" ON "votes"("value");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "votes_userId_postId_key" ON "votes"("userId", "postId");
