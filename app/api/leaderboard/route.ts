@@ -35,28 +35,32 @@ type RankResult = { higherCount: string }[];
 
 /**
  * Helper: Calculate current rank for a given average rating and ratings count among visible users.
- */
-async function getUserRank(
+ */async function getUserRank(
   averageRating: number,
   ratingsCount: number
 ): Promise<number> {
-  const rankResult = await prisma.$queryRaw<RankResult>`
-    SELECT COUNT(*) as "higherCount"
-    FROM (
-      SELECT 
-        u.id,
-        COALESCE(AVG(r.value)::FLOAT, 0) as rating,
-        COUNT(r.id) as "ratingsCount"
-      FROM "User" u
-      LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
-      WHERE u.visible = true
-      GROUP BY u.id
-    ) as leaderboard
-    WHERE leaderboard.rating > ${averageRating}
-      OR (leaderboard.rating = ${averageRating} AND leaderboard."ratingsCount" > ${ratingsCount})
+  // Fetch all visible users along with their aggregated rating and ratings count.
+  const allUsers = await prisma.$queryRaw<{ id: string; rating: number; ratingsCount: number }[]>`
+    SELECT 
+      u.id,
+      COALESCE(AVG(r.value)::FLOAT, 0) AS rating,
+      COUNT(r.id) AS "ratingsCount"
+    FROM "User" u
+    LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
+    WHERE u.visible = true
+    GROUP BY u.id
   `;
-  return parseInt(rankResult[0].higherCount) + 1;
+
+  // Calculate rank by counting how many users have a higher rating,
+  // or the same rating but a higher ratings count.
+  const rank = allUsers.filter(user =>
+    (user.rating > averageRating) ||
+    (user.rating === averageRating && user.ratingsCount > ratingsCount)
+  ).length + 1;
+
+  return rank+1;
 }
+
 
 /**
  * Simple security middleware: rate limiting, CSRF validation (for non-GET), authentication, and blacklist check.
