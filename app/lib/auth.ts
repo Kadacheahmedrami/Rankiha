@@ -9,7 +9,7 @@ declare module "next-auth" {
   interface NextAuthOptions {
     allowDangerousEmailAccountLinking?: boolean;
   }
-  
+
   interface Session extends DefaultSession {
     user?: {
       id: string;
@@ -23,10 +23,9 @@ declare module "next-auth/jwt" {
   }
 }
 
-
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
-  allowDangerousEmailAccountLinking: true, 
+  allowDangerousEmailAccountLinking: true,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID as string,
@@ -35,51 +34,37 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      console.log("SIGN IN CALLBACK TRIGGERED", { user, account });
-      
-      if (!user.email) {
-        console.log("Sign-in rejected: User has no email");
-        return false;
-      }
+      if (!user.email) return false;
 
-      if (BLACKLISTED_EMAILS.includes(user.email)) {
-        console.log(`Sign-in rejected: ${user.email} is blacklisted`);
-        return false;
-      }
+      if (BLACKLISTED_EMAILS.includes(user.email)) return false;
 
-      if (!user.email.endsWith("@estin.dz")) {
-        console.log("Sign-in rejected: Email does not end with @estin.dz");
-        return false;
-      }
-    
+      if (!user.email.endsWith("@estin.dz")) return false;
+
       try {
         const existingUser = await prisma.user.findFirst({
           where: { email: user.email },
         });
-    
-        console.log("Existing user found:", existingUser);
-    
+
         if (existingUser) {
           if (account?.provider === "google" && account.providerAccountId) {
-            console.log("Updating user with Google ID:", account.providerAccountId);
-            
             await prisma.user.update({
               where: { id: existingUser.id },
-              data: { 
+              data: {
                 googleId: account.providerAccountId,
                 image: user.image || existingUser.image,
                 name: user.name || existingUser.name,
                 emailVerified: new Date(),
+                visible: true,
               },
             });
-            
+
             const existingAccount = await prisma.account.findFirst({
               where: {
                 provider: account.provider,
                 providerAccountId: account.providerAccountId,
               },
             });
-            
+
             if (!existingAccount) {
               await prisma.account.create({
                 data: {
@@ -95,18 +80,48 @@ export const authOptions: NextAuthOptions = {
                   id_token: account.id_token,
                 },
               });
-              console.log("Account linked successfully");
-            } else {
-              console.log("Account link already exists, skipping creation");
             }
           }
           return true;
         }
-    
-        console.log("No existing user found, allowing normal sign-up");
+
+        // Manually create the user
+        await prisma.user.create({
+          data: {
+            email: user.email,
+            name: user.name,
+            image: user.image,
+            emailVerified: new Date(),
+            visible: true,
+            googleId: account?.providerAccountId,
+            accounts: account?.provider
+              ? {
+                  create: {
+                    type: account.type,
+                    provider: account.provider,
+                    providerAccountId: account.providerAccountId,
+                    ...(account.refresh_token
+                      ? { refresh_token: account.refresh_token }
+                      : {}),
+                    ...(account.access_token
+                      ? { access_token: account.access_token }
+                      : {}),
+                    ...(account.expires_at
+                      ? { expires_at: account.expires_at }
+                      : {}),
+                    ...(account.token_type
+                      ? { token_type: account.token_type }
+                      : {}),
+                    ...(account.scope ? { scope: account.scope } : {}),
+                    ...(account.id_token ? { id_token: account.id_token } : {}),
+                  },
+                }
+              : undefined,
+          },
+        });
+
         return true;
       } catch (error) {
-        console.error("Error during sign-in process:", error);
         return false;
       }
     },

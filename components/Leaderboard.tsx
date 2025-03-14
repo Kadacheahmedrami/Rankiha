@@ -20,6 +20,7 @@ interface Profile {
   ratings: number | null
   change: "up" | "down" | "same"
   image: string
+  tag: string
   rank: number
 }
 
@@ -27,6 +28,7 @@ export default function Leaderboard() {
   const [searchTerm, setSearchTerm] = useState<string>("")
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false)
   const [profiles, setProfiles] = useState<Profile[]>([])
+  const [currentUserData, setCurrentUserData] = useState<Profile | null>(null)
   const [page, setPage] = useState<number>(1)
   const [limit] = useState<number>(20)
   const [totalPages, setTotalPages] = useState<number>(1)
@@ -38,6 +40,23 @@ export default function Leaderboard() {
   const [isCommentModalOpen, setIsCommentModalOpen] = useState<boolean>(false)
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null)
 
+  // Helper function to return vibrant classes based on the tag
+  const getTagStyles = (tag: string) => {
+    const upperTag = tag.toUpperCase()
+    switch (upperTag) {
+      case "ADMIN":
+        return "bg-gradient-to-r from-primary to-purple-500 text-white px-2 py-0.5 text-xs rounded-full shadow-lg transform hover:scale-105 transition duration-300"
+      case "PROFESSOR":
+        return "bg-gradient-to-r from-primary/80 to-secondary/80 text-white px-2 py-0.5 text-xs rounded-full shadow-lg transform hover:rotate-3 transition duration-300"
+      case "HACKER":
+        return "bg-red-500 text-white px-2 py-0.5 text-xs rounded-full border-2 border-dashed border-yellow-300 font-extrabold animate-pulse"
+          case "USER":
+        return "hidden text-transparent "
+      default:
+        return "bg-secondary/20 text-primary px-2 py-0.5 text-xs rounded-full"
+    }
+  }
+
   // Fetch leaderboard data with pagination metadata
   const fetchLeaderboard = async (): Promise<void> => {
     try {
@@ -47,10 +66,8 @@ export default function Leaderboard() {
       queryParams.append("limit", limit.toString())
       const query = "?" + queryParams.toString()
       const res = await fetch(`/api/leaderboard${query}`)
-      if (!res.ok) {
-        console.error("Error fetching leaderboard:", res.statusText)
-        return
-      }
+      if (!res.ok) return
+
       const json = await res.json()
       // If we're on page 1, replace the leaderboard; otherwise, append new results.
       if (page === 1) {
@@ -60,8 +77,14 @@ export default function Leaderboard() {
       }
       setTotalPages(json.pagination.totalPages)
       setIsFetchingMore(false)
+
+      // Set current user data from the API response if available
+      if (json.currentUser) {
+        setCurrentUserData(json.currentUser)
+      } else {
+        setCurrentUserData(null)
+      }
     } catch (error) {
-      console.error("Error fetching leaderboard:", error)
       setIsFetchingMore(false)
     }
   }
@@ -70,13 +93,11 @@ export default function Leaderboard() {
   const handleRatingChange = async (profile: Profile, newRating: number): Promise<void> => {
     // Check if the user is trying to rate themselves
     if (session?.user?.id === profile.id) {
-      console.log("Attempt to rate self detected")
       toast.error("You cannot rate yourself")
       return
     }
 
     try {
-      console.log("Submitting rating for profile:", profile)
       const response: Response = await fetch("/api/rating", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -87,8 +108,7 @@ export default function Leaderboard() {
         console.error("Error rating profile:", errorData.error || response.statusText)
         return
       }
-      const data = await response.json()
-      console.log("Rating submitted successfully:", data)
+      await response.json()
       // Refresh the leaderboard after the rating update
       await fetchLeaderboard()
     } catch (error: unknown) {
@@ -117,9 +137,36 @@ export default function Leaderboard() {
     setIsCommentModalOpen(true)
   }
 
-  // Handle comment submission
+  // Handle comment submission with length validation and user notification
   const handleCommentSubmit = async (comment: string): Promise<boolean> => {
-    if (!selectedProfile || !comment.trim()) return false
+
+ 
+    if (!selectedProfile) return false
+  
+    const trimmedComment = comment.trim()
+
+    if (trimmedComment.length === 0) {
+      toast.error("Comment cannot be empty. Please enter a comment.")
+      return false
+    }
+
+    if (trimmedComment.length < 3) {
+    
+      toast.error("Comment is too short. Please enter at least 3 characters.")
+      return false
+    }
+
+    if (trimmedComment.length > 500) {
+      toast.error("Comment is too long. Please limit your comment to 500 characters.")
+      
+      return false
+    }
+
+    // Check for proper sentence structure (starts with capital letter and ends with punctuation)
+    const startsWithCapital = /^[A-Z]/.test(trimmedComment)
+    const endsWithPunctuation = /[.!?]$/.test(trimmedComment)
+
+ 
 
     try {
       const response = await fetch("/api/comment", {
@@ -127,7 +174,7 @@ export default function Leaderboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           targetUserId: selectedProfile.id,
-          content: comment,
+          content: trimmedComment,
         }),
       })
 
@@ -140,7 +187,6 @@ export default function Leaderboard() {
       toast.success("Comment posted successfully")
       return true
     } catch (error) {
-      console.error("Error posting comment:", error)
       toast.error("Failed to post comment")
       return false
     }
@@ -181,33 +227,24 @@ export default function Leaderboard() {
     return () => clearTimeout(timer)
   }, [])
 
-  // Get current user's profile from the fetched leaderboard data.
-  const currentUserProfile = session?.user?.id ? profiles.find((p) => p.id === session.user!.id) : null
-
   return (
-    <div className="flex flex-col gap-2 px-2 sm:px-0">
-      <div className="flex flex-col gap-3 mb-4">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight glow-text bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
-          Leaderboard
-        </h1>
-      </div>
-
+    <div className="flex flex-col gap-2 px-2 ">
       {/* Prominent Search Bar */}
       <div>
         <div className={`relative w-full transition-all duration-300 ${isSearchFocused ? "scale-102" : ""}`}>
           <div className="absolute inset-0 -m-1 bg-gradient-to-r from-primary/50 to-purple-500/50 rounded-2xl blur-md opacity-70 animate-pulse-glow"></div>
           <div className="relative bg-secondary/30 backdrop-blur-sm rounded-xl border border-primary/30 shadow-xl overflow-hidden">
-            <div className="absolute inset-y-0 left-3 sm:left-5 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
               <Search
-                className={`h-5 w-5 sm:h-6 sm:w-6 transition-colors duration-300 ${
+                className={`h-5 w-5 transition-colors duration-300 ${
                   isSearchFocused ? "text-primary" : "text-primary/70"
                 }`}
               />
             </div>
             <Input
               ref={searchInputRef}
-              placeholder="Search profiles by name or username..."
-              className="pl-10 sm:pl-14 pr-4 sm:pr-36 h-[60px] sm:py-7 text-base sm:text-lg border-0 placeholder:text-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0"
+              placeholder="Search profiles..."
+              className="pl-10 pr-16 h-12 text-sm border-0 placeholder:text-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 sm:h-14 sm:text-base sm:pl-14 sm:pr-36"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
@@ -218,14 +255,14 @@ export default function Leaderboard() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 sm:h-9 rounded-lg bg-background/20 hover:bg-background/40 text-foreground hidden sm:flex"
+                  className="h-8 rounded-lg bg-background/20 hover:bg-background/40 text-foreground hidden sm:flex"
                   onClick={() => setSearchTerm("")}
                 >
                   Clear
                 </Button>
               )}
-              <div className="h-8 sm:h-10 p-2 py-2 md:py-6 font-bold text-[32px] rounded-lg bg-primary flex items-center gap-1 sm:gap-2 shadow-md">
-                <div>#{currentUserProfile ? currentUserProfile.rank : "N/A"}</div>
+              <div className="h-8 p-1 font-bold text-lg rounded-lg bg-primary flex items-center justify-center shadow-md sm:h-10 sm:p-2 sm:text-2xl">
+                <div>#{currentUserData ? currentUserData.rank : "N/A"}</div>
               </div>
             </div>
           </div>
@@ -234,13 +271,13 @@ export default function Leaderboard() {
 
       {/* Leaderboard List */}
       <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-b from-background to-secondary/10">
-        <CardHeader className="pb-0 border-b border-border/20">
+        <CardHeader className="pb-0 border-b border-border/20 px-4 py-4 sm:px-6 sm:py-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <div>
-              <CardTitle className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
+              <CardTitle className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
                 All Profiles
               </CardTitle>
-              <CardDescription className="text-sm sm:text-base">
+              <CardDescription className="text-xs sm:text-base">
                 {profiles.length} profiles found {searchTerm && `for "${searchTerm}"`}
               </CardDescription>
             </div>
@@ -249,7 +286,7 @@ export default function Leaderboard() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setSearchTerm("")}
-                className="text-muted-foreground hover:text-foreground self-start sm:self-auto"
+                className="text-muted-foreground hover:text-foreground self-start sm:self-auto text-xs"
               >
                 Clear search
               </Button>
@@ -262,93 +299,96 @@ export default function Leaderboard() {
               profiles.map((profile) => (
                 <div
                   key={profile.id}
-                  className={`flex items-center gap-4 p-5 border-b border-border/20 hover:bg-secondary/20 transition-all duration-300 animate-slide-up ${
+                  className={`flex flex-col sm:flex-row sm:items-center gap-3 p-4 border-b border-border/20 hover:bg-secondary/20 transition-all duration-300 animate-slide-up ${
                     profile.rank <= 3 ? "bg-gradient-to-r from-primary/5 to-transparent" : ""
                   }`}
                 >
-                  <div className="w-8 text-center font-bold text-lg">
-                    <Link href={`/profile/${profile.id}`} className="hover:underline">
-                      {profile.rank}
-                    </Link>
+                  {/* Mobile layout: Top row with rank, avatar, name and tag */}
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="flex items-center gap-3">
+                      <div className="w-6 text-center font-bold text-base sm:w-8 sm:text-lg">
+                        <Link href={`/profile/${profile.id}`} className="hover:underline">
+                          {profile.rank}
+                        </Link>
+                      </div>
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md sm:w-12 sm:h-12 ${
+                          profile.rank === 1
+                            ? "bg-gradient-to-r from-yellow-500/30 to-yellow-600/30 ring-2 ring-yellow-500/30"
+                            : profile.rank === 2
+                              ? "bg-gradient-to-r from-gray-400/30 to-gray-500/30 ring-2 ring-gray-400/30"
+                              : profile.rank === 3
+                                ? "bg-gradient-to-r from-amber-600/30 to-amber-700/30 ring-2 ring-amber-600/30"
+                                : "bg-gradient-to-r from-primary/20 to-purple-500/20"
+                        }`}
+                      >
+                        <span className="font-bold text-base sm:text-lg">{profile.name.charAt(0)}</span>
+                      </div>
+                    </div>
+                    <div className="flex  flex-col">
+                      <h4 className="font-medium text-base sm:text-lg">{profile.name}</h4>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <p>
+                        <span className="text-xs text-muted-foreground sm:text-sm">{profile.username}</span>
+                        <span className={getTagStyles(profile.tag) +' hidden md:inline mx-2' }>{profile.tag}</span>
+                        </p>
+                
+           
+                      </div>
+                    </div>
+                    <span className={getTagStyles(profile.tag) +' inline md:hidden  ml-auto mb-auto' }>{profile.tag}</span>
                   </div>
 
-                  <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-md ${
-                      profile.rank === 1
-                        ? "bg-gradient-to-r from-yellow-500/30 to-yellow-600/30 ring-2 ring-yellow-500/30"
-                        : profile.rank === 2
-                          ? "bg-gradient-to-r from-gray-400/30 to-gray-500/30 ring-2 ring-gray-400/30"
-                          : profile.rank === 3
-                            ? "bg-gradient-to-r from-amber-600/30 to-amber-700/30 ring-2 ring-amber-600/30"
-                            : "bg-gradient-to-r from-primary/20 to-purple-500/20"
-                    }`}
-                  >
-                    <span className="font-bold text-lg">{profile.name.charAt(0)}</span>
-                  </div>
-
-                  <div className="flex-1">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <div>
-                        <h4 className="font-medium text-lg">{profile.name}</h4>
-                        <p className="text-sm text-muted-foreground">{profile.username}</p>
+                  {/* Mobile layout: Bottom row with rating and buttons */}
+                  <div className="flex items-center  justify-end flex-wrap gap-4   md:flex-row  mt-2 w-full sm:mt-0 sm:ml-auto sm:w-auto sm:justify-end">
+                    <div className="flex items-center mr-auto gap-2">
+                      <span className="font-bold text-sm">{profile.rating.toFixed(2)}</span>
+                      <RatingStars
+                        initialRating={profile.rating}
+                        displayOnly={false}
+                        size="sm"
+                        profileId={profile.id}
+                        disableSelfRating={session?.user?.id === profile.id}
+                        onRate={(newRating: number) => handleRatingChange(profile, newRating)}
+                      />
+                      <span className="text-xs w-4 mx-1 text-muted-foreground">({profile.ratings})</span>
+                      <div className="flex items-center mx-2">
+                        {profile.change === "up" && <span className="text-green-500 text-sm font-bold">↑</span>}
+                        {profile.change === "down" && <span className="text-red-500 text-sm font-bold">↓</span>}
+                        {profile.change === "same" && <span className="text-muted-foreground text-sm">-</span>}
                       </div>
-
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mt-2 sm:mt-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold">{profile.rating.toFixed(1)}</span>
-                          <RatingStars
-                            initialRating={profile.rating}
-                            displayOnly={false}
-                            size="sm"
-                            profileId={profile.id}
-                            disableSelfRating={session?.user?.id === profile.id}
-                            onRate={(newRating: number) => handleRatingChange(profile, newRating)}
-                          />
-                          <span className="text-xs text-muted-foreground">({profile.ratings})</span>
-                        </div>
-
-                        <div className="hidden sm:flex items-center">
-                          {profile.change === "up" && <span className="text-green-500 text-sm font-bold">↑</span>}
-                          {profile.change === "down" && <span className="text-red-500 text-sm font-bold">↓</span>}
-                          {profile.change === "same" && <span className="text-muted-foreground text-sm">-</span>}
-                        </div>
-
-                        <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto justify-end">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 rounded-full bg-secondary/40 hover:bg-secondary/60 border-primary/20 hover:border-primary/40 text-xs sm:text-sm transition-all duration-200 hover:scale-105 group"
-                            onClick={() => handleOpenCommentModal(profile)}
-                          >
-                            <MessageSquare className="h-3.5 w-3.5 text-primary group-hover:text-primary/80" />
-                            <span className="hidden sm:inline">Comment</span>
-                            <span className="sm:hidden">Comment</span>
-                          </Button>
-
-                          <Link href={`/profile/${profile.id}`}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="glow-effect bg-white bg-opacity-10 rounded-full px-4 w-full sm:w-auto"
-                            >
-                              View
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 rounded-full bg-secondary/40 hover:bg-secondary/60 border-primary/20 hover:border-primary/40 text-xs px-2 h-8 transition-all duration-200 hover:scale-105 group"
+                        onClick={() => handleOpenCommentModal(profile)}
+                      >
+                        <MessageSquare className="h-3 w-3 text-primary group-hover:text-primary/80" />
+                        
+                      </Button>
+                      <Link href={`/profile/${profile.id}`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="glow-effect  bg-white bg-opacity-10 rounded-full px-3 text-xs h-8"
+                        >
+                          View
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="p-12 text-center">
-                <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-                <h3 className="text-xl font-medium mb-2">No profiles found</h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all
-                  profiles.
+              <div className="p-6 text-center sm:p-12">
+                <Search className="h-8 w-8 text-muted-foreground mx-auto mb-3 opacity-50 sm:h-12 sm:w-12 sm:mb-4" />
+                <h3 className="text-lg font-medium mb-2 sm:text-xl">No profiles found</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto sm:text-base">
+                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all profiles.
                 </p>
-                <Button variant="outline" className="mt-4 glow-effect" onClick={() => setSearchTerm("")}>
+                <Button variant="outline" className="mt-3 glow-effect text-sm sm:mt-4" onClick={() => setSearchTerm("")}>
                   Show all profiles
                 </Button>
               </div>
@@ -356,6 +396,14 @@ export default function Leaderboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Loading indicator for infinite scroll */}
+      {isFetchingMore && page < totalPages && (
+        <div className="py-4 text-center">
+          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <p className="text-sm text-muted-foreground mt-2">Loading more profiles...</p>
+        </div>
+      )}
 
       {/* Comment Modal */}
       {selectedProfile && (
@@ -369,4 +417,3 @@ export default function Leaderboard() {
     </div>
   )
 }
-

@@ -1,94 +1,168 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import type React from "react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { usePathname, useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Bell, LogOut, Menu, Settings, Star, TrendingUp, User } from "lucide-react"
-import Link from "next/link"
-import { useState } from "react"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { signOut } from "next-auth/react"
+} from "@/components/ui/dropdown-menu";
+import {
+  Bell,
+  LogOut,
+  Menu,
+  ArrowLeft,
+  MessageCircle,
+  Settings,
+  Star,
+  TrendingUp,
+  User,
+  Calendar,
+  Images,
+  MessageSquare, // New icon for messages
+} from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { signOut } from "next-auth/react";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // Map the pathname to a corresponding title
+  const getTitle = () => {
+    if (pathname.includes("/profile")) return "Profile";
+    if (pathname.includes("/leaderboard")) return "Leaderboard";
+    if (pathname.includes("/events")) return "Events";
+    if (pathname.includes("/feed")) return "Feed";
+    if (pathname.includes("/postiha")) return "Postiha";
+    if (pathname.includes("/messages")) return "Messages";
+    return "Dashboard"; // Default title
+  };
 
   const navItems = [
-    { name: "Leaderboard", href: "/leaderboard", icon: <TrendingUp className="h-5 w-5" /> },
-    { name: "Profile", href: "/profile", icon: <User className="h-5 w-5" /> },
-  ]
+    {
+      name: "Leaderboard",
+      href: "/leaderboard",
+      icon: <TrendingUp className="h-5 w-5" />,
+    },
+    {
+      name: "Feed",
+      href: "/feed",
+      icon: <Bell className="h-5 w-5" />,
+    },
+    {
+      name: "Postiha",
+      href: "/postiha",
+      icon: <Images className="h-5 w-5" />,
+    },
+    {
+      name: "Messages", // NEW TAB ADDED
+      href: "/messages",
+      icon: <MessageSquare className="h-5 w-5" />,
+    },
+    
+    
+    {
+      name: "Events",
+      href: "/events",
+      icon: <Calendar className="h-5 w-5" />,
+    },
+    {
+      name: "Profile",
+      href: "/profile",
+      icon: <User className="h-5 w-5" />,
+    },
+  ];
 
-  // Function to sign the user out and redirect to the home page.
   const handleSignOut = () => {
-    signOut({ callbackUrl: "/" })
-  }
+    signOut({ callbackUrl: "/" });
+  };
+
+  const isProfilePage = pathname.includes("/profile");
 
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-border/40 backdrop-blur-sm bg-background/80 fixed w-full z-10">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden">
-                  <Menu className="h-5 w-5" />
-                  <span className="sr-only">Toggle menu</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="p-0">
-                <div className="flex flex-col h-full">
-                  <div className="border-b border-border/40 p-4">
-                    <div className="flex items-center gap-2">
-                      <Star className="h-6 w-6 text-primary" />
-                      <span className="text-xl font-bold tracking-tight">Rankiha</span>
+            <div className="border-b hidden md:block border-border/40 p-4"></div>
+            {/* Back Button for Profile Page (Mobile Only) */}
+            {isProfilePage ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                onClick={() => router.back()}
+              >
+                <ArrowLeft className="h-5 w-5" />
+                <span className="sr-only">Go back</span>
+              </Button>
+            ) : (
+              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="md:hidden">
+                    <Menu className="h-5 w-5" />
+                    <span className="sr-only">Toggle menu</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="p-0">
+                  <div className="flex flex-col h-full">
+                    <div className="border-b border-border/40 p-4"></div>
+                    <nav className="flex-1 p-4">
+                      <ul className="space-y-2">
+                        {navItems.map((item) => (
+                          <li key={item.name}>
+                            <Link
+                              href={item.href}
+                              className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-secondary transition-colors"
+                              onClick={() => setIsMobileMenuOpen(false)}
+                            >
+                              {item.icon}
+                              <span>{item.name}</span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </nav>
+                    <div className="border-t border-border/40 p-4">
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start gap-3"
+                        onClick={() => {
+                          setIsMobileMenuOpen(false);
+                          handleSignOut();
+                        }}
+                      >
+                        <LogOut className="h-5 w-5" />
+                        <span>Sign Out</span>
+                      </Button>
                     </div>
                   </div>
-                  <nav className="flex-1 p-4">
-                    <ul className="space-y-2">
-                      {navItems.map((item) => (
-                        <li key={item.name}>
-                          <Link
-                            href={item.href}
-                            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-secondary transition-colors"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                          >
-                            {item.icon}
-                            <span>{item.name}</span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </nav>
-                  <div className="border-t border-border/40 p-4">
-                    {/* Mobile sign-out button */}
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3"
-                      onClick={() => {
-                        setIsMobileMenuOpen(false)
-                        handleSignOut()
-                      }}
-                    >
-                      <LogOut className="h-5 w-5" />
-                      <span>Sign Out</span>
-                    </Button>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+                </SheetContent>
+              </Sheet>
+            )}
 
             <Link href="/leaderboard" className="flex items-center gap-2">
-              <Star className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold tracking-tight hidden md:inline">Rankiha</span>
+              <Star className="h-6 w-6 hidden md:block text-primary" />
+              <span className="text-xl font-bold tracking-tight hidden md:inline">
+                Rankiha
+              </span>
             </Link>
           </div>
 
+          {/* Dynamic Heading */}
+          <h1 className="text-2xl md:hidden ml-2 mr-auto sm:text-3xl font-bold tracking-tight glow-text bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
+            {getTitle()}
+          </h1>
+
+          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => (
               <Link key={item.name} href={item.href}>
@@ -107,7 +181,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <Avatar className="h-8 w-8">
                     <AvatarImage src="/placeholder-user.jpg" alt="@user" />
                     <AvatarFallback>
-                      {/* Updated fallback: Increased size and hover effect */}
                       <User className="h-6 w-6 transition-transform duration-200 ease-in-out hover:scale-110" />
                     </AvatarFallback>
                   </Avatar>
@@ -123,7 +196,32 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <DropdownMenuItem asChild>
                   <Link href="/leaderboard" className="cursor-pointer">
                     <TrendingUp className="mr-2 h-4 w-4" />
-                    <span>leaderboard</span>
+                    <span>Leaderboard</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/feed" className="cursor-pointer">
+                  <Bell className="mr-2 h-4 w-4" />
+                  <span>Feed</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/events" className="cursor-pointer">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    <span>Events</span>
+                  </Link>
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem asChild>
+                  <Link href="/messages" className="cursor-pointer">
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  <span>Messages</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/postiha" className="cursor-pointer">
+                    <Images className="mr-2 h-4 w-4" />
+                    <span>Postiha</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -131,7 +229,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Sign out</span>
                 </DropdownMenuItem>
+                
               </DropdownMenuContent>
+
+
+
             </DropdownMenu>
           </div>
         </div>
@@ -139,5 +241,5 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1 md:container pt-24 pb-12">{children}</main>
     </div>
-  )
+  );
 }

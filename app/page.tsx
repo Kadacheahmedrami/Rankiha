@@ -22,7 +22,7 @@ export default async function Home() {
           <div className="flex items-center gap-2">
             <Star className="h-6 w-6 text-primary animate-pulse-glow" />
             <span className="text-xl font-bold tracking-tight glow-text">
-              Stellar Ranks
+              Rankiha
             </span>
           </div>
           {/* Only show Sign In button when there is no active session */}
@@ -48,10 +48,13 @@ export default async function Home() {
               className="text-muted-foreground text-lg max-w-[600px] animate-slide-up"
               style={{ animationDelay: "0.2s" }}
             >
-              Join our platform to search, rate, and discover top-ranked users in real-time. Connect with Google and
-              start your journey today.
+              Join our platform to search, rate, and discover top-ranked users
+              in real-time. Connect with Google and start your journey today.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 pt-4 animate-slide-up" style={{ animationDelay: "0.4s" }}>
+            <div
+              className="flex flex-col sm:flex-row gap-4 pt-4 animate-slide-up"
+              style={{ animationDelay: "0.4s" }}
+            >
               <Link href="/auth/signin">
                 <Button size="lg" className="glow-button w-full">
                   Get Started
@@ -59,20 +62,29 @@ export default async function Home() {
                 </Button>
               </Link>
               <Link href="/leaderboard">
-                <Button variant="outline" size="lg" className="glow-effect w-full">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="glow-effect w-full"
+                >
                   View Leaderboard
                 </Button>
               </Link>
             </div>
           </div>
 
-          <div className="relative animate-fade-in" style={{ animationDelay: "0.3s" }}>
+          <div
+            className="relative animate-fade-in"
+            style={{ animationDelay: "0.3s" }}
+          >
             <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/50 to-purple-500/50 rounded-lg blur-xl opacity-75"></div>
             <Card className="relative overflow-hidden border-2 border-border/50">
               <CardContent className="p-6">
                 <div className="space-y-8">
                   <div className="space-y-2">
-                    <h3 className="text-xl font-semibold">Top Rated Profiles</h3>
+                    <h3 className="text-xl font-semibold">
+                      Top Rated Profiles
+                    </h3>
                     <div className="h-[1px] w-full bg-gradient-to-r from-primary/80 to-transparent"></div>
                   </div>
 
@@ -90,9 +102,16 @@ export default async function Home() {
                           {Array(5)
                             .fill(0)
                             .map((_, j) => (
-                              <Star key={j} className={`h-4 w-4 ${j < (6 - i) ? "fill-current" : "opacity-40"}`} />
+                              <Star
+                                key={j}
+                                className={`h-4 w-4 ${
+                                  j < 6 - i ? "fill-current" : "opacity-40"
+                                }`}
+                              />
                             ))}
-                          <span className="text-xs text-muted-foreground ml-2">{(6 - i).toFixed(1)} / 5.0</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {(6 - i).toFixed(1)} / 5.0
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -100,7 +119,11 @@ export default async function Home() {
 
                   <div className="text-center">
                     <Link href="/leaderboard">
-                      <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-primary hover:text-primary/80"
+                      >
                         View All Rankings
                         <ArrowRight className="ml-1 h-3 w-3" />
                       </Button>
@@ -112,28 +135,34 @@ export default async function Home() {
           </div>
         </div>
         <div className="mt-32 rounded-md border border-purple-500 px-4 py-3 text-center text-yellow-300 font-medium">
-          Note: Your rank will remain anonymous, and only users with an <strong>@estin.dz</strong> email address are accepted in our system.
+          Note: Your rank will remain anonymous, and only users with an{" "}
+          <strong>@estin.dz</strong> email address are accepted in our system.
         </div>
         <div className="mt-24 space-y-12">
-          <h2 className="text-3xl font-bold text-center glow-text">How It Works</h2>
+          <h2 className="text-3xl font-bold text-center glow-text">
+            How It Works
+          </h2>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
                 title: "Sign In",
-                description: "Connect with your Google account for a seamless experience",
+                description:
+                  "Connect with your Google account for a seamless experience",
                 delay: "0s",
                 icon: "🔐",
               },
               {
                 title: "Discover Profiles",
-                description: "Search and explore profiles from our growing community",
+                description:
+                  "Search and explore profiles from our growing community",
                 delay: "0.2s",
                 icon: "🔍",
               },
               {
                 title: "Rate & Rank",
-                description: "Give ratings and see real-time updates on the leaderboard",
+                description:
+                  "Give ratings and see real-time updates on the leaderboard",
                 delay: "0.4s",
                 icon: "⭐",
               },
@@ -158,17 +187,17 @@ export default async function Home() {
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Star className="h-5 w-5 text-primary" />
-            <span className="font-semibold">Stellar Ranks</span>
+            <span className="font-semibold">Rankiha</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Stellar Ranks. All rights reserved.
+            © {new Date().getFullYear()} Rankiha. All rights reserved.
           </p>
           <div className="flex gap-4">
-            <Link href="/terms" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link
+              href="/terms"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
               Terms
-            </Link>
-            <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground">
-              Privacy
             </Link>
           </div>
         </div>
