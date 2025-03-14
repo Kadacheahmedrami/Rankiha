@@ -48,7 +48,7 @@ type RankResult = { higherCount: string }[];
     FROM "User" u
     LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
     WHERE u.visible = true
-    GROUP BY u.id
+   §/$)àç-_è-'("GROUP BY u.id
   `;
 
   // Calculate rank by counting how many users have a higher rating,
