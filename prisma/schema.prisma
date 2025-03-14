@@ -38,6 +38,10 @@ model User {
   commentsReceived Comment[]  @relation("CommentsReceived") // Comments received by this user
   reportsMade      CommentReport[] @relation("ReportsMade") // Reports made by this user
 
+  // Message system relations
+  sentMessages     Message[] @relation("SentMessages")      // Messages sent by this user
+  receivedMessages Message[] @relation("ReceivedMessages")  // Messages received by this user
+
   Post Post[]
 
   Vote Vote[]
@@ -237,4 +241,19 @@ model HoneypotLog {
   email     String?  // Optional: email from the authenticated session
   name      String?  // Optional: name from the authenticated session
   createdAt DateTime @default(now())
+}
+model Message {
+  id          String   @id @default(uuid())
+  senderId    String
+  recipientId String
+  content     String
+  createdAt   DateTime @default(now())
+  readAt      DateTime?
+  showName    Boolean  @default(false)
+  isHidden    Boolean  @default(false)
+  parentId    String?  // For replies; null if it’s a new message
+
+  // Relations
+  sender       User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient    User     @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
 }

@@ -3,7 +3,7 @@
 import type React from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { usePathname, useRouter } from "next/navigation"; // Added useRouter for back button
+import { usePathname, useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +15,7 @@ import {
   Bell,
   LogOut,
   Menu,
-  ArrowLeft, // Added ArrowLeft for the back button
+  ArrowLeft,
   MessageCircle,
   Settings,
   Star,
@@ -23,6 +23,7 @@ import {
   User,
   Calendar,
   Images,
+  MessageSquare, // New icon for messages
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -41,6 +42,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (pathname.includes("/events")) return "Events";
     if (pathname.includes("/feed")) return "Feed";
     if (pathname.includes("/postiha")) return "Postiha";
+    if (pathname.includes("/messages")) return "Messages";
     return "Dashboard"; // Default title
   };
 
@@ -50,18 +52,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       href: "/leaderboard",
       icon: <TrendingUp className="h-5 w-5" />,
     },
-    { name: "Profile", href: "/profile", icon: <User className="h-5 w-5" /> },
     {
       name: "Feed",
       href: "/feed",
-      icon: <MessageCircle className="h-5 w-5" />,
+      icon: <Bell className="h-5 w-5" />,
     },
     {
       name: "Postiha",
       href: "/postiha",
       icon: <Images className="h-5 w-5" />,
     },
-    { name: "Events", href: "/events", icon: <Calendar className="h-5 w-5" /> },
+    {
+      name: "Messages", // NEW TAB ADDED
+      href: "/messages",
+      icon: <MessageSquare className="h-5 w-5" />,
+    },
+    
+    
+    {
+      name: "Events",
+      href: "/events",
+      icon: <Calendar className="h-5 w-5" />,
+    },
+    {
+      name: "Profile",
+      href: "/profile",
+      icon: <User className="h-5 w-5" />,
+    },
   ];
 
   const handleSignOut = () => {
@@ -84,7 +101,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 className="md:hidden"
                 onClick={() => router.back()}
               >
-                <ArrowLeft className="h-5 w-5" /> {/* Smaller size */}
+                <ArrowLeft className="h-5 w-5" />
                 <span className="sr-only">Go back</span>
               </Button>
             ) : (
@@ -97,9 +114,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </SheetTrigger>
                 <SheetContent side="left" className="p-0">
                   <div className="flex flex-col h-full">
-                    <div className="border-b border-border/40 p-4">
-                      <div className="flex items-center gap-2"></div>
-                    </div>
+                    <div className="border-b border-border/40 p-4"></div>
                     <nav className="flex-1 p-4">
                       <ul className="space-y-2">
                         {navItems.map((item) => (
@@ -134,14 +149,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </Sheet>
             )}
 
-            {
-              <Link href="/leaderboard" className="flex items-center gap-2">
-                <Star className="h-6 w-6 hidden md:block text-primary" />
-                <span className="text-xl font-bold tracking-tight hidden md:inline">
-                  Rankiha
-                </span>
-              </Link>
-            }
+            <Link href="/leaderboard" className="flex items-center gap-2">
+              <Star className="h-6 w-6 hidden md:block text-primary" />
+              <span className="text-xl font-bold tracking-tight hidden md:inline">
+                Rankiha
+              </span>
+            </Link>
           </div>
 
           {/* Dynamic Heading */}
@@ -188,8 +201,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/feed" className="cursor-pointer">
-                    <MessageCircle className="mr-2 h-4 w-4" />
-                    <span>Feed</span>
+                  <Bell className="mr-2 h-4 w-4" />
+                  <span>Feed</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
@@ -198,10 +211,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <span>Events</span>
                   </Link>
                 </DropdownMenuItem>
+                
+                <DropdownMenuItem asChild>
+                  <Link href="/messages" className="cursor-pointer">
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  <span>Messages</span>
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/postiha" className="cursor-pointer">
                     <Images className="mr-2 h-4 w-4" />
-                    <span>postiha</span>
+                    <span>Postiha</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -209,7 +229,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Sign out</span>
                 </DropdownMenuItem>
+                
               </DropdownMenuContent>
+
+
+
             </DropdownMenu>
           </div>
         </div>

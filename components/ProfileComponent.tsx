@@ -36,6 +36,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
+// Import Checkbox and Label components for the new field
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+
 // Define the profile type including anonymous comments
 export type Profile = {
   id: string
@@ -67,6 +71,12 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
   const [disableLoading, setDisableLoading] = useState<boolean>(false)
   const [showDisableModal, setShowDisableModal] = useState<boolean>(false)
   const MAX_COMMENT_LENGTH = 500
+
+  // New state for sending private message
+  const [privateMessageOpen, setPrivateMessageOpen] = useState(false)
+  const [privateMessageText, setPrivateMessageText] = useState("")
+  const [includeName, setIncludeName] = useState(true)
+  const [sendingMessage, setSendingMessage] = useState(false)
 
   // Get current session to check if the profile is being viewed by its owner
   const { data: session } = useSession()
@@ -152,6 +162,37 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
     }
   }
 
+  // Handle private message submission
+  const handleSendPrivateMessage = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!privateMessageText.trim()) return
+    setSendingMessage(true)
+    try {
+      const res = await fetch(`/api/messages/send`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recipientId: id,
+          content: privateMessageText,
+          includeSenderInfo: includeName,
+        }),
+      })
+      if (!res.ok) {
+        throw new Error("Failed to send message")
+      }
+      toast.success("Message sent successfully")
+      setPrivateMessageText("")
+      setPrivateMessageOpen(false)
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to send message")
+    } finally {
+      setSendingMessage(false)
+    }
+  }
+
   if (loading)
     return (
       <AppLayout>
@@ -199,16 +240,15 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
                   {disableLoading ? "Disabling..." : "Disable Account"}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-background shadow-xl rounded-lg p-6">
+              <DialogContent className="bg-background shadow-xl rounded-lg p-6 sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
                     Disable Account
                   </DialogTitle>
                   <DialogDescription className="mt-2 text-lg">
-  Are you sure you want to disable your account? You will be signed out immediately, and your profile, ratings, and comments will be hidden.  
-  If you do not sign in within the next 3 days, all your data will be permanently deleted.
-</DialogDescription>
-
+                    Are you sure you want to disable your account? You will be signed out immediately, and your profile, ratings, and comments will be hidden.  
+                    If you do not sign in within the next 3 days, all your data will be permanently deleted.
+                  </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="mt-4 flex justify-end gap-4">
                   <Button variant="ghost" onClick={() => setShowDisableModal(false)}>
@@ -275,10 +315,65 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
                       <MapPin className="h-4 w-4 text-primary" />
                       <span>{profile.location || "Estin"}</span>
                     </div>
-               
                   </div>
                 </div>
               </CardContent>
+              {/* Reduced padding between the card and the send message button */}
+              {!isOwnProfile && (
+                <div className="p-2">
+                  <Dialog open={privateMessageOpen} onOpenChange={setPrivateMessageOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full gap-2">
+                        <Send className="h-4 w-4" />
+                        Send Message
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-background shadow-xl rounded-lg p-6 sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
+                          Send Private Message
+                        </DialogTitle>
+                        <DialogDescription className="mt-2">
+                          Your message will be sent privately to {profile.name}.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={handleSendPrivateMessage} className="space-y-4 mt-4">
+                        <Textarea
+                          placeholder="Type your message here..."
+                          className="min-h-[120px]"
+                          value={privateMessageText}
+                          onChange={(e) => setPrivateMessageText(e.target.value)}
+                          required
+                        />
+                        {/* New Checkbox field for including sender's name */}
+                        <div className="flex items-center space-x-2 mt-2">
+                          <Checkbox
+                            id="includeName"
+                            checked={includeName}
+                            onCheckedChange={(checked) => setIncludeName(checked as boolean)}
+                          />
+                          <Label htmlFor="includeName" className="text-sm">
+                            Include my name in the message
+                          </Label>
+                        </div>
+                        <DialogFooter className="mt-6 gap-2">
+                          <Button type="button" variant="outline" onClick={() => setPrivateMessageOpen(false)} disabled={sendingMessage}>
+                            Cancel
+                          </Button>
+                          <Button type="submit" className="gap-2 bg-gradient-to-r from-primary to-purple-500 hover:from-primary/90 hover:to-purple-500/90 transition-all" disabled={!privateMessageText.trim() || sendingMessage}>
+                            {sendingMessage ? "Sending..." : (
+                              <>
+                                Send Message
+                                <Send className="h-4 w-4" />
+                              </>
+                            )}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              )}
             </Card>
           </div>
 
@@ -336,19 +431,25 @@ export function ProfileComponent({ id }: ProfileComponentProps) {
                     <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
                       <Card className="bg-secondary/10 border-0">
                         <CardContent className="p-4 text-center">
-                          <h3 className="text-sm text-muted-foreground mb-1">Average Rating</h3>
+                          <h3 className="text-sm text-muted-foreground mb-1">
+                            Average Rating
+                          </h3>
                           <p className="text-3xl font-bold">{safeRating}</p>
                         </CardContent>
                       </Card>
                       <Card className="bg-secondary/10 border-0">
                         <CardContent className="p-4 text-center">
-                          <h3 className="text-sm text-muted-foreground mb-1">Total Ratings</h3>
+                          <h3 className="text-sm text-muted-foreground mb-1">
+                            Total Ratings
+                          </h3>
                           <p className="text-3xl font-bold">{safeTotalRatings}</p>
                         </CardContent>
                       </Card>
                       <Card className="bg-secondary/10 border-0">
                         <CardContent className="p-4 text-center">
-                          <h3 className="text-sm text-muted-foreground mb-1">5-Star Ratings</h3>
+                          <h3 className="text-sm text-muted-foreground mb-1">
+                            5-Star Ratings
+                          </h3>
                           <p className="text-3xl font-bold">{safeDistribution[0] || 0}</p>
                         </CardContent>
                       </Card>
