@@ -58,7 +58,7 @@ type RankResult = { higherCount: string }[];
     (user.rating === averageRating && user.ratingsCount > ratingsCount)
   ).length + 1;
 
-  return rank+1;
+  return rank;
 }
 
 
