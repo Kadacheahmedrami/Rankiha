@@ -1,4 +1,4 @@
-import { Mail, AlertTriangle } from "lucide-react"
+import { Mail, AlertTriangle, Lock } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,9 +20,9 @@ export default function BannedPage() {
           <div className="mx-auto flex  bg-red-500/20 w-16 h-16 rounded-full  items-center justify-center mb-2">
             <span
               role="img"
-              aria-label="middle finger"
+              aria-label="lock"
               className=" text-red-500 relative  text-[45px]"
-            >🖕</span>
+            >🔒</span>
           </div>
           <CardTitle className="text-2xl font-bold text-center">
             Account Suspended
