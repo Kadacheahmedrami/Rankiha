@@ -1,23 +1,22 @@
 export const dynamic = "force-dynamic";
 
-
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma/prismaClient";
 import { getServerAuthSession } from "@/lib/auth";
+import { securityMiddleware } from "@/lib/security";
 
 export async function GET(req: NextRequest) {
   try {
+    // Fetch session and run reusable security middleware.
     const session = await getServerAuthSession();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const secCheck = await securityMiddleware(req, session);
+    if (secCheck) return secCheck;
 
-    // Fetch messages where the current user is the recipient.
-    // You can add additional conditions if needed.
+    // At this point, session and session.user are guaranteed.
     const messages = await prisma.message.findMany({
       where: {
-        OR: [{ recipientId: session.user.id }],
-        isHidden: false, // Only include messages that haven't been soft-deleted
+        OR: [{ recipientId: session!.user!.id }],
+        isHidden: false,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -55,16 +54,17 @@ export async function GET(req: NextRequest) {
           content: message.content,
           createdAt: message.createdAt.toISOString(),
           readAt: message.readAt ? message.readAt.toISOString() : null,
-          sender: message.showName && sender?.name
-            ? { id: sender.id, name: sender.name }
-            : { name: "Anonymous" },
-          recipient: recipient?.name
-            ? { id: recipient.id, name: recipient.name }
-            : { name: "Anonymous" },
-          parent, 
-          senderName:  message.showName && sender?.name
-          ?  sender?.name 
-          :  "Anonymous" ,
+          sender:
+            message.showName && sender?.name
+              ? { id: sender.id, name: sender.name }
+              : { name: "Anonymous" },
+          recipient:
+            recipient?.name
+              ? { id: recipient.id, name: recipient.name }
+              : { name: "Anonymous" },
+          parent,
+          senderName:
+            message.showName && sender?.name ? sender.name : "Anonymous",
         };
       })
     );
@@ -72,6 +72,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ messages: formattedMessages });
   } catch (error) {
     console.error("Error fetching messages:", error);
-    return NextResponse.json({ error: "Failed to fetch messages" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch messages" },
+      { status: 500 }
+    );
   }
 }
