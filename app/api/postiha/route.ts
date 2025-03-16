@@ -23,7 +23,28 @@ export async function GET(request: NextRequest) {
     const limit = Number.parseInt(searchParams.get("limit") || "20");
     const skip = (page - 1) * limit;
 
-    // Only fetch posts that are visible
+    // Get start of today for filtering posts
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Count posts created today by the user
+    const userPostCount = await prisma.post.count({
+      where: {
+        authorId: session.user.id,
+        createdAt: {
+          gte: today, // Only count posts created from the start of today
+        },
+      },
+    });
+
+    if (userPostCount >= 10) {
+      return NextResponse.json(
+        { error: "You have reached your daily limit of 10 posts." },
+        { status: 403 }
+      );
+    }
+
+    // Fetch posts
     const [posts, totalItems] = await Promise.all([
       prisma.post.findMany({
         where: { visible: true },
@@ -42,9 +63,8 @@ export async function GET(request: NextRequest) {
       prisma.post.count({ where: { visible: true } }),
     ]);
 
-    // Process posts and only return the desired fields
+    // Process posts
     const processedPosts = posts.map((post) => {
-      // Calculate upvotes and downvotes
       const upvotes = post.votes.filter((vote) => vote.value === 1).length;
       const downvotes = post.votes.filter((vote) => vote.value === -1).length;
 
