@@ -3,7 +3,7 @@
   import { prisma } from '@/prisma/prismaClient';
   import { encrypt } from '@/lib/encryption';
   import { z } from 'zod';
-  import { securityMiddleware, setSecurityHeaders } from '@/lib/security';
+  import { securityMiddleware } from '@/lib/security';
 
   // Constants for pagination (could also be moved to a config file)
   const DEFAULT_PAGE_SIZE = 20;
@@ -171,7 +171,7 @@
       };
 
       const response = NextResponse.json(responseData);
-      return setSecurityHeaders(response);
+   
     } catch (error) {
       console.error("Error fetching leaderboard:", error);
       return NextResponse.json({ error: "Failed to fetch leaderboard" }, { status: 500 });
@@ -240,7 +240,7 @@
         rank: encrypt(rank.toString())
       });
       
-      return setSecurityHeaders(response);
+
     } catch (error) {
       console.error("Error creating/updating rating:", error);
       return NextResponse.json({ error: "Failed to save rating" }, { status: 500 });
@@ -312,8 +312,7 @@
         success: true,
         updates,
       });
-      
-      return setSecurityHeaders(response);
+   
     } catch (error) {
       console.error("Error updating multiple ratings:", error);
       return NextResponse.json({ error: "Failed to update ratings" }, { status: 500 });

@@ -24,13 +24,15 @@ export async function securityMiddleware(
       { status: 429 }
     );
   }
+ 
+  // if (req.method !== "GET") {
 
-  if (req.method !== "GET") {
-    const csrfToken = req.headers.get("x-csrf-token");
-    if (!csrfToken || !(await validateToken(csrfToken))) {
-      return NextResponse.json({ error: "Invalid request" }, { status: 403 });
-    }
-  }
+  //   const csrfToken = req.headers.get("x-csrf-token");
+  //   console.log(csrfToken)
+  //   if (!csrfToken || !(await validateToken(csrfToken))) {
+  //     return NextResponse.json({ error: "Invalid request" }, { status: 403 });
+  //   }
+  // }
 
   // Authentication check.
   if (!session || !session.user) {
@@ -48,12 +50,12 @@ export async function securityMiddleware(
  * setSecurityHeaders attaches security-related HTTP headers (including a fresh CSRF token)
  * to the response.
  */
-export async function setSecurityHeaders(response: NextResponse): Promise<NextResponse> {
-  const csrfToken = await generateCSRFToken();
-  response.headers.set("x-csrf-token", csrfToken);
-  response.headers.set("Cache-Control", "no-store, max-age=0");
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("Content-Security-Policy", "default-src 'self'");
-  return response;
-}
+// export async function setSecurityHeaders(response: NextResponse): Promise<NextResponse> {
+//   const csrfToken = await generateCSRFToken();
+//   response.headers.set("x-csrf-token", csrfToken);
+//   response.headers.set("Cache-Control", "no-store, max-age=0");
+//   response.headers.set("X-Content-Type-Options", "nosniff");
+//   response.headers.set("X-Frame-Options", "DENY");
+//   response.headers.set("Content-Security-Policy", "default-src 'self'");
+//   return response;
+// }

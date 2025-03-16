@@ -1,4 +1,5 @@
 "use client";
+
 import Image from "next/image";
 import {
   Card,
@@ -12,8 +13,9 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import { decrypt } from "@/lib/encryption";
 
-// Interface for Comment
+// Interfaces for Comment and Post (decrypted data)
 interface Comment {
   id: string;
   content: string;
@@ -25,7 +27,6 @@ interface Comment {
   };
 }
 
-// Interface for Post
 interface Post {
   id: string;
   title: string;
@@ -54,7 +55,7 @@ export default function Feed() {
   const postsLoaderRef = useRef<HTMLDivElement>(null);
   const commentsLoaderRef = useRef<HTMLDivElement>(null);
 
-  // Fetch posts from API
+  // Fetch posts from API and decrypt the response.
   const fetchPosts = async (): Promise<void> => {
     try {
       if (postsPage === 1) {
@@ -72,10 +73,17 @@ export default function Feed() {
         return;
       }
       const json = await res.json();
+      // Decrypt each post field.
+      const decryptedPosts: Post[] = json.posts.data.map((post: any) => ({
+        id: decrypt(post.id),
+        title: decrypt(post.title),
+        imageUrl: decrypt(post.imageUrl),
+        createdAt: decrypt(post.createdAt),
+      }));
       if (postsPage === 1) {
-        setPosts(json.posts.data);
+        setPosts(decryptedPosts);
       } else {
-        setPosts((prev) => [...prev, ...json.posts.data]);
+        setPosts((prev) => [...prev, ...decryptedPosts]);
       }
       setPostsTotalPages(json.posts.pagination.totalPages);
     } catch (error) {
@@ -87,7 +95,7 @@ export default function Feed() {
     }
   };
 
-  // Fetch comments from API
+  // Fetch comments from API and decrypt the response.
   const fetchComments = async (): Promise<void> => {
     try {
       if (commentsPage === 1) {
@@ -105,10 +113,21 @@ export default function Feed() {
         return;
       }
       const json = await res.json();
+      // Decrypt each comment and its nested targetUser fields.
+      const decryptedComments: Comment[] = json.comments.data.map((comment: any) => ({
+        id: decrypt(comment.id),
+        content: decrypt(comment.content),
+        createdAt: decrypt(comment.createdAt),
+        targetUser: {
+          id: decrypt(comment.targetUser.id),
+          name: decrypt(comment.targetUser.name),
+          email: decrypt(comment.targetUser.email),
+        },
+      }));
       if (commentsPage === 1) {
-        setComments(json.comments.data);
+        setComments(decryptedComments);
       } else {
-        setComments((prev) => [...prev, ...json.comments.data]);
+        setComments((prev) => [...prev, ...decryptedComments]);
       }
       setCommentsTotalPages(json.comments.pagination.totalPages);
     } catch (error) {
@@ -120,15 +139,17 @@ export default function Feed() {
     }
   };
 
+  // Fetch posts when postsPage changes.
   useEffect(() => {
     fetchPosts();
   }, [postsPage]);
 
+  // Fetch comments when commentsPage changes.
   useEffect(() => {
     fetchComments();
   }, [commentsPage]);
 
-  // Intersection Observer for Posts (horizontal)
+  // Infinite scroll: load next page when near bottom for posts.
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -154,7 +175,7 @@ export default function Feed() {
     };
   }, [isLoadingPosts, isLoadingMorePosts, postsPage, postsTotalPages]);
 
-  // Intersection Observer for Comments (vertical)
+  // Infinite scroll: load next page when near bottom for comments.
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -180,7 +201,7 @@ export default function Feed() {
     };
   }, [isLoadingComments, isLoadingMoreComments, commentsPage, commentsTotalPages]);
 
-  // Helper to format date
+  // Helper to format date.
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -191,7 +212,7 @@ export default function Feed() {
     });
   };
 
-  // Skeleton loader for posts
+  // Skeleton loaders for posts and comments remain the same.
   const PostSkeleton = () => (
     <div className="w-[300px] flex-none animate-pulse bg-secondary/20 p-4 rounded-lg border border-border/10">
       <div className="h-6 w-3/4 bg-secondary/40 rounded mb-4"></div>
@@ -200,7 +221,6 @@ export default function Feed() {
     </div>
   );
 
-  // Skeleton loader for comments
   const CommentSkeleton = () => (
     <div className="p-6 animate-pulse">
       <div className="flex items-start">
@@ -220,173 +240,122 @@ export default function Feed() {
 
   return (
     <div className="container mx-auto sm:py-8 max-w-6xl">
-      {/* Posts Section - Horizontal Scroll */}
+      {/* Posts Section */}
       <div className="mb-6 sm:mb-8">
-        <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-b from-background to-secondary/10 p-2 sm:p-4">
-          <CardHeader className="pb-2 sm:pb-4 border-b border-border/20">
-            <CardTitle className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
-              Latest Posts
-            </CardTitle>
-            <CardDescription className="text-xs sm:text-base">
-              See what people are posting
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-2 sm:p-4">
-            {isLoadingPosts && postsPage === 1 ? (
-              <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
-                {[...Array(3)].map((_, i) => (
-                  <PostSkeleton key={i} />
-                ))}
-              </div>
-            ) : posts.length > 0 ? (
-              <div className="relative">
-                <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
-                  {posts.map((post) => (
-                    <div
-                      key={post.id}
-                      className="w-[300px] flex-none bg-secondary/20 p-4 rounded-lg border border-border/10 hover:bg-secondary/30 transition-all duration-300 snap-start"
-                    >
-                      <h3 className="text-base  sm:text-lg font-bold mb-2 line-clamp-1">
-                        {post.title}
-                      </h3>
-                      {post.imageUrl && (
-                        <div className="relative w-full aspect-square overflow-hidden">
-                          <Image
-                            src={post.imageUrl || "/placeholder.svg?height=400&width=400"}
-                            alt={post.title}
-                            fill
-                            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-                            className="object-cover transition-opacity duration-500 ease-in-out"
-                          />
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center mt-2">
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          {formatDate(post.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  <div ref={postsLoaderRef} className="w-8 flex-shrink-0" />
-                </div>
-                {isLoadingMorePosts && (
-                  <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-1">
-                    <div className="flex items-center justify-center space-x-1 text-xs text-primary">
-                      <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]"></div>
-                      <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]"></div>
-                      <div className="h-2 w-2 rounded-full bg-primary animate-bounce"></div>
-                    </div>
+        {/* ...Your posts rendering code */}
+        <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
+          {isLoadingPosts && postsPage === 1 ? (
+            [...Array(3)].map((_, i) => <PostSkeleton key={i} />)
+          ) : posts.length > 0 ? (
+            posts.map((post) => (
+              <div
+                key={post.id}
+                className="w-[300px] flex-none bg-secondary/20 p-4 rounded-lg border border-border/10 hover:bg-secondary/30 transition-all duration-300"
+              >
+                <h3 className="text-base sm:text-lg font-bold mb-2 line-clamp-1">
+                  {post.title}
+                </h3>
+                {post.imageUrl && (
+                  <div className="relative w-full aspect-square overflow-hidden">
+                    <Image
+                      src={post.imageUrl}
+                      alt={post.title}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
+                      className="object-cover transition-opacity duration-500 ease-in-out"
+                    />
                   </div>
                 )}
-                <div className="hidden sm:block absolute top-1/2 right-0 transform -translate-y-1/2 bg-gradient-to-l from-background to-transparent w-12 h-full pointer-events-none"></div>
+                <div className="flex justify-between items-center mt-2">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    {formatDate(post.createdAt)}
+                  </p>
+                </div>
               </div>
-            ) : (
-              <p className="text-center py-6 text-muted-foreground">
-                No posts available.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+            ))
+          ) : (
+            <p className="text-center py-6 text-muted-foreground">
+              No posts available.
+            </p>
+          )}
+          <div ref={postsLoaderRef} className="w-8 flex-shrink-0" />
+        </div>
+        {isLoadingMorePosts && (
+          <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-1">
+            <div className="flex items-center justify-center space-x-1 text-xs text-primary">
+              <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]"></div>
+              <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]"></div>
+              <div className="h-2 w-2 rounded-full bg-primary animate-bounce"></div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Comments Section - Vertical Scroll */}
+      {/* Comments Section */}
       <div>
-        <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-b from-background to-secondary/10">
-          <CardHeader className="pb-2 sm:pb-4 border-b border-border/20">
-            <CardTitle className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
-              Latest Comments
-            </CardTitle>
-            <CardDescription className="text-xs sm:text-base">
-              See what people are saying about each other
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isLoadingComments && commentsPage === 1 ? (
-              <div className="divide-y divide-border/20">
-                {[...Array(3)].map((_, i) => (
-                  <CommentSkeleton key={i} />
-                ))}
-              </div>
-            ) : comments.length > 0 ? (
-              <div className="divide-y divide-border/20">
-                {comments.map((comment) => (
-                  <div
-                    key={comment.id}
-                    className="p-4 sm:p-6 hover:bg-secondary/20 transition-all duration-300 flex items-start"
-                  >
-                    <div className="flex-1">
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-3">
-                        <div className="flex items-center flex-wrap">
-                          <span className="mx-1 sm:mx-2 text-muted-foreground flex items-center">
-                            <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
-                          </span>
-                          <Link
-                            href={`/profile/${comment.targetUser.id}`}
-                            className="font-bold text-base sm:text-lg hover:underline"
-                          >
-                            {comment.targetUser.name}
-                          </Link>
-                        </div>
-                        <div className="flex items-center gap-2 sm:gap-4">
-                          <span className="text-xs sm:text-sm text-muted-foreground">
-                            {formatDate(comment.createdAt)}
-                          </span>
-                          <button
-                            onClick={() => toast.error("Report feature not implemented")}
-                            className="text-muted-foreground hover:text-destructive transition-colors duration-200 flex items-center"
-                            title="Report this comment"
-                            aria-label="Report comment"
-                          >
-                            <Flag className="h-3 w-3 sm:h-4 sm:w-4" />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="bg-secondary/20 p-3 sm:p-4 rounded-lg border border-border/10">
-                        <p className="text-sm sm:text-base">{comment.content}</p>
-                      </div>
+        <div className="divide-y divide-border/20">
+          {isLoadingComments && commentsPage === 1 ? (
+            [...Array(3)].map((_, i) => <CommentSkeleton key={i} />)
+          ) : comments.length > 0 ? (
+            comments.map((comment) => (
+              <div
+                key={comment.id}
+                className="p-4 sm:p-6 hover:bg-secondary/20 transition-all duration-300 flex items-start"
+              >
+                <div className="flex-1">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-3">
+                    <div className="flex items-center flex-wrap">
+                      <span className="mx-1 sm:mx-2 text-muted-foreground flex items-center">
+                        <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
+                      </span>
+                      <Link
+                        href={`/profile/${comment.targetUser.id}`}
+                        className="font-bold text-base sm:text-lg hover:underline"
+                      >
+                        {comment.targetUser.name}
+                      </Link>
+                    </div>
+                    <div className="flex items-center gap-2 sm:gap-4">
+                      <span className="text-xs sm:text-sm text-muted-foreground">
+                        {formatDate(comment.createdAt)}
+                      </span>
+                      <button
+                        onClick={() => toast.error("Report feature not implemented")}
+                        className="text-muted-foreground hover:text-destructive transition-colors duration-200 flex items-center"
+                        title="Report this comment"
+                        aria-label="Report comment"
+                      >
+                        <Flag className="h-3 w-3 sm:h-4 sm:w-4" />
+                      </button>
                     </div>
                   </div>
-                ))}
-                <div ref={commentsLoaderRef} className="h-8" />
-                {isLoadingMoreComments && (
-                  <div className="py-4 flex justify-center">
-                    <div className="flex items-center justify-center space-x-2">
-                      <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]"></div>
-                      <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]"></div>
-                      <div className="h-2 w-2 rounded-full bg-primary animate-bounce"></div>
-                    </div>
+                  <div className="bg-secondary/20 p-4 rounded-lg border border-border/10">
+                    <p className="text-sm sm:text-base">{comment.content}</p>
                   </div>
-                )}
+                </div>
               </div>
-            ) : (
-              <div className="p-8 sm:p-12 text-center">
-                <MessageSquare className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg sm:text-xl font-medium mb-2">No comments yet</h3>
-                <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto">
-                  There are no comments to display at the moment. Check back later!
-                </p>
+            ))
+          ) : (
+            <div className="p-8 sm:p-12 text-center">
+              <MessageSquare className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg sm:text-xl font-medium mb-2">No comments yet</h3>
+              <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto">
+                There are no comments to display at the moment. Check back later!
+              </p>
+            </div>
+          )}
+          <div ref={commentsLoaderRef} className="h-8" />
+          {isLoadingMoreComments && (
+            <div className="py-4 flex justify-center">
+              <div className="flex items-center justify-center space-x-2">
+                <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="h-2 w-2 rounded-full bg-primary animate-bounce"></div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
-
-const CommentSkeleton = () => (
-  <div className="p-6 animate-pulse">
-    <div className="flex items-start">
-      <div className="flex-1">
-        <div className="flex justify-between items-start mb-3">
-          <div className="h-5 w-1/3 bg-secondary/40 rounded"></div>
-          <div className="h-4 w-1/4 bg-secondary/40 rounded"></div>
-        </div>
-        <div className="bg-secondary/20 p-4 rounded-lg border border-border/10">
-          <div className="h-4 w-full bg-secondary/40 rounded mb-2"></div>
-          <div className="h-4 w-3/4 bg-secondary/40 rounded"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-);

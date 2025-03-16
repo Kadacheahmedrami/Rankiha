@@ -3,30 +3,48 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma/prismaClient";
 import { getServerAuthSession } from "@/lib/auth";
-import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
+import { securityMiddleware } from "@/lib/security";
+import { z } from "zod";
+import { encrypt } from "@/lib/encryption";
+
+// Constants for pagination (could also be moved to a config file)
+const DEFAULT_PAGE_SIZE = 20;
+
+// Zod schema to validate query parameters for pagination
+const queryParamsSchema = z.object({
+  search: z.string().optional(),
+  limit: z.number().int().min(1).max(30).optional(),
+  page: z.number().int().min(1).optional()
+});
 
 export async function GET(req: NextRequest) {
   try {
-    // Session & blacklist check
+    // Fetch session and run reusable security middleware.
     const session = await getServerAuthSession();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
-      return NextResponse.json({ error: "You are banned" }, { status: 403 });
-    }
+    const secCheck = await securityMiddleware(req, session);
+    if (secCheck) return secCheck;
 
-    // Use separate pagination parameters for comments and posts
+    // Validate and parse query parameters using Zod.
     const searchParams = req.nextUrl.searchParams;
-    const commentsPage = parseInt(searchParams.get("commentsPage") || "1");
-    const commentsLimit = parseInt(searchParams.get("commentsLimit") || "20");
+    const { search = "", limit = DEFAULT_PAGE_SIZE, page = 1 } =
+      queryParamsSchema.parse({
+        search: searchParams.get("search") || undefined,
+        limit: searchParams.get("limit")
+          ? parseInt(searchParams.get("limit") as string)
+          : undefined,
+        page: searchParams.get("page")
+          ? parseInt(searchParams.get("page") as string)
+          : undefined,
+      });
+    const commentsPage = page; // or use separate schema if needed
+    const commentsLimit = limit;
     const commentsSkip = (commentsPage - 1) * commentsLimit;
 
-    const postsPage = parseInt(searchParams.get("postsPage") || "1");
-    const postsLimit = parseInt(searchParams.get("postsLimit") || "10");
+    const postsPage = page;
+    const postsLimit = 10; // You could also validate this with Zod if needed
     const postsSkip = (postsPage - 1) * postsLimit;
 
-    // Fetch paginated comments
+    // Fetch paginated comments.
     const [comments, totalComments] = await Promise.all([
       prisma.comment.findMany({
         where: {
@@ -51,7 +69,7 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    // Fetch paginated posts
+    // Fetch paginated posts.
     const [posts, totalPosts] = await Promise.all([
       prisma.post.findMany({
         where: { visible: true },
@@ -65,27 +83,28 @@ export async function GET(req: NextRequest) {
       prisma.post.count({ where: { visible: true } }),
     ]);
 
-    // Format comments (you can adjust fields as needed)
+    // Format and encrypt comments.
     const formattedComments = comments.map((comment) => ({
-      id: comment.id,
-      content: comment.content,
-      createdAt: comment.createdAt.toISOString(),
+      id: encrypt(comment.id),
+      content: encrypt(comment.content),
+      createdAt: encrypt(comment.createdAt.toISOString()),
       targetUser: {
-        id: comment.targetUser.id,
-        name: comment.targetUser.name,
-        email: comment.targetUser.email,
+        id: encrypt(comment.targetUser.id),
+        name: encrypt(comment.targetUser.name!),
+        email: encrypt(comment.targetUser.email),
       },
     }));
 
-    // Format posts (adjust fields as needed)
+    // Format and encrypt posts.
     const formattedPosts = posts.map((post) => ({
-      id: post.id,
-      title: post.title,
-      imageUrl: post.imageUrl,
-      createdAt: post.createdAt.toISOString(),
+      id: encrypt(post.id),
+      title: encrypt(post.title),
+      imageUrl: encrypt(post.imageUrl),
+      createdAt: encrypt(post.createdAt.toISOString()),
     }));
 
-    return NextResponse.json({
+    // Pagination remains unencrypted for client usability.
+    const responseData = {
       comments: {
         data: formattedComments,
         pagination: {
@@ -104,7 +123,9 @@ export async function GET(req: NextRequest) {
           totalPages: Math.ceil(totalPosts / postsLimit),
         },
       },
-    });
+    };
+
+    return (NextResponse.json(responseData));
   } catch (error) {
     console.error("Error fetching feed:", error);
     return NextResponse.json({ error: "Failed to fetch feed" }, { status: 500 });
