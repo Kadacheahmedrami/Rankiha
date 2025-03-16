@@ -30,40 +30,46 @@ const queryParamsSchema = z.object({
   page: z.number().int().min(1).optional()
 });
 
-// Define a type for the raw rank query result
-type RankResult = { higherCount: string }[];
+// Define a type for the ranking data (now including createdAt for tie-breaking)
+type RankingData = { 
+  id: string; 
+  rating: number; 
+  ratingsCount: number; 
+  createdAt: string;
+}[];
 
 /**
- * Helper: Calculate current rank for a given average rating and ratings count among visible users.
- */async function getUserRank(
-  averageRating: number,
-  ratingsCount: number
-): Promise<number> {
-  // Fetch all visible users along with their aggregated rating and ratings count.
-  const allUsers = await prisma.$queryRaw<{ id: string; rating: number; ratingsCount: number }[]>`
+ * Helper: Calculate current rank for a given user by using the provided users array.
+ * The function expects the users array to be sorted by:
+ *    rating DESC, ratingsCount DESC, createdAt ASC.
+ */
+function getUserRank({ id, users }: { id: string; users: RankingData }): number {
+  const index = users.findIndex(u => u.id === id);
+  return index !== -1 ? index + 1 : -1; // Returns -1 if user not found.
+}
+
+/**
+ * Helper: Fetch all visible users with their ratings data for rank calculation.
+ * The ordering now includes the createdAt field to exactly match the leaderboard ordering.
+ */
+async function getAllUsersRankingData(): Promise<RankingData> {
+  return await prisma.$queryRaw<RankingData>`
     SELECT 
       u.id,
+      u."createdAt",
       COALESCE(AVG(r.value)::FLOAT, 0) AS rating,
       COUNT(r.id) AS "ratingsCount"
     FROM "User" u
     LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
     WHERE u.visible = true
-    GROUP BY u.id
+    GROUP BY u.id, u."createdAt"
+    ORDER BY rating DESC, "ratingsCount" DESC, u."createdAt" ASC
   `;
-
-  // Calculate rank by counting how many users have a higher rating,
-  // or the same rating but a higher ratings count.
-  const rank = allUsers.filter(user =>
-    (user.rating > averageRating) ||
-    (user.rating === averageRating && user.ratingsCount > ratingsCount)
-  ).length + 1;
-
-  return rank;
 }
 
-
 /**
- * Simple security middleware: rate limiting, CSRF validation (for non-GET), authentication, and blacklist check.
+ * Simple security middleware: rate limiting, CSRF validation (for non-GET),
+ * authentication, and blacklist check.
  */
 async function securityMiddleware(req: NextRequest): Promise<NextResponse | null> {
   const ip = req.headers.get("x-forwarded-for") || "unknown";
@@ -79,7 +85,7 @@ async function securityMiddleware(req: NextRequest): Promise<NextResponse | null
     }
   }
   const session = await getServerAuthSession();
- 
+
   if (!session?.user) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
@@ -108,7 +114,6 @@ async function setSecurityHeaders(response: NextResponse): Promise<NextResponse>
  */
 export async function GET(req: NextRequest) {
   try {
-    // Run security middleware.
     const secCheck = await securityMiddleware(req);
     if (secCheck) return secCheck;
     
@@ -117,6 +122,9 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const page = parseInt(searchParams.get('page') || '1');
     const skip = (page - 1) * limit;
+    
+    // Fetch the full ranking data (all visible users ordered exactly as on the leaderboard)
+    const allUsersRankingData = await getAllUsersRankingData();
     
     // Fetch paginated users with their average rating.
     const users = await prisma.$queryRaw<any[]>`
@@ -133,7 +141,7 @@ export async function GET(req: NextRequest) {
       WHERE 
         u.visible = true AND
         (u.name ILIKE ${`%${searchTerm}%`} OR u.email ILIKE ${`%${searchTerm}%`})
-      GROUP BY u.id
+      GROUP BY u.id, u."createdAt"
       ORDER BY rating DESC, "ratingsCount" DESC, u."createdAt" ASC
       LIMIT ${limit} OFFSET ${skip}
     `;
@@ -173,7 +181,7 @@ export async function GET(req: NextRequest) {
         id: user.id,
         name: user.name,
         username: user.email,
-        tag : user.tag,
+        tag: user.tag,
         rating: parseFloat(user.rating.toFixed(2)),
         ratings: parseInt(user.ratingsCount),
         change,
@@ -197,7 +205,10 @@ export async function GET(req: NextRequest) {
         const ratingsCount = currentUserRatings.length;
         const averageRating = ratingsCount > 0 ? totalRating / ratingsCount : 0;
         const averageRatingRounded = parseFloat(averageRating.toFixed(1));
-        const rank = await getUserRank(averageRating, ratingsCount);
+        
+        // Calculate rank using the full ranking data array.
+        const rank = getUserRank({ id: currentUserProfile.id, users: allUsersRankingData });
+        
         currentUserData = {
           id: currentUserProfile.id,
           name: currentUserProfile.name,
@@ -262,11 +273,16 @@ export async function POST(req: NextRequest) {
       create: { userId: currentUser.id, ratedUserId, value },
     });
     
+    // Fetch full ranking data for rank calculation.
+    const allUsersRankingData = await getAllUsersRankingData();
+    
     const userRatings = await prisma.rating.findMany({ where: { ratedUserId } });
     const totalRating = userRatings.reduce((sum, r) => sum + r.value, 0);
     const averageRating = totalRating / userRatings.length;
     const averageRatingRounded = parseFloat(averageRating.toFixed(1));
-    const rank = await getUserRank(averageRating, userRatings.length);
+    
+    // Calculate rank using the provided users array.
+    const rank = getUserRank({ id: ratedUserId, users: allUsersRankingData });
     
     const response = NextResponse.json({ 
       success: true, 
@@ -323,14 +339,16 @@ export async function PATCH(req: NextRequest) {
       return results;
     });
     
-    const affectedUserIds = [...new Set(ratings.map(r => r.ratedUserId))];
+    // Fetch full ranking data once for use in updates.
+    const allUsersRankingData = await getAllUsersRankingData();
+    
     const updates = await Promise.all(
-      affectedUserIds.map(async (userId) => {
+      [...new Set(ratings.map(r => r.ratedUserId))].map(async (userId) => {
         const userRatings = await prisma.rating.findMany({ where: { ratedUserId: userId } });
         const totalRating = userRatings.reduce((sum, r) => sum + r.value, 0);
         const averageRating = userRatings.length > 0 ? totalRating / userRatings.length : 0;
         const averageRatingRounded = parseFloat(averageRating.toFixed(1));
-        const rank = await getUserRank(averageRating, userRatings.length);
+        const rank = getUserRank({ id: userId, users: allUsersRankingData });
         return {
           userId,
           averageRating: averageRatingRounded,
