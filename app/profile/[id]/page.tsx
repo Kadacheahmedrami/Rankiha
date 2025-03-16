@@ -1,6 +1,6 @@
 import { ProfileComponent } from "@/components/ProfileComponent";
 import { redirect } from "next/navigation";
-import { getServerAuthSession } from "@/app/lib/auth";
+import { getServerAuthSession } from "@/lib/auth";
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 
 export default async function Page({ params }: { params: { id: string } }) {

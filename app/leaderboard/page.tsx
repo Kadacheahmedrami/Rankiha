@@ -1,7 +1,7 @@
 import AppLayout from "@/components/app-layout";
 import Leaderboard from "@/components/Leaderboard";
 import { redirect } from "next/navigation";
-import { getServerAuthSession } from "@/app/lib/auth";
+import { getServerAuthSession } from "@/lib/auth";
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist"
 import ActiveEvent from "@/components/slect-active-event"
 

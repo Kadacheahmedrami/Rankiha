@@ -1,7 +1,7 @@
 import AppLayout from "@/components/app-layout";
 import EventsList from "@/components/events/events-list";
 import { redirect } from "next/navigation";
-import { getServerAuthSession } from "@/app/lib/auth";
+import { getServerAuthSession } from "@/lib/auth";
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 import type { Event } from "@/lib/events";
 import { headers } from "next/headers";

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getServerAuthSession } from "@/app/lib/auth";
+import { getServerAuthSession } from "@/lib/auth";
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 import { prisma } from "@/prisma/prismaClient";
 

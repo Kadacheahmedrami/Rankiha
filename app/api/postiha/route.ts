@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma/prismaClient";
-import { getServerAuthSession } from "@/app/lib/auth";
+import { getServerAuthSession } from "@/lib/auth";
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 
 export async function GET(request: NextRequest) {

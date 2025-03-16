@@ -1,7 +1,7 @@
 // app/api/events/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/prisma/prismaClient';
-import { getServerAuthSession } from '@/app/lib/auth';
+import { getServerAuthSession } from '@/lib/auth';
 import { rateLimit } from '@/lib/rateLimit';
 import { validateToken, generateCSRFToken } from '@/lib/csrf';
 import { BLACKLISTED_EMAILS } from '@/app/BLACKLIST/blacklist';
