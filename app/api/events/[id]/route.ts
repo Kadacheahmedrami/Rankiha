@@ -5,7 +5,7 @@ import { getServerAuthSession } from '@/app/lib/auth';
 import { rateLimit } from '@/lib/rateLimit';
 import { validateToken, generateCSRFToken } from '@/lib/csrf';
 import { BLACKLISTED_EMAILS } from '@/app/BLACKLIST/blacklist';
-import { logger } from '@/lib/logger';
+
 
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 30;
@@ -26,7 +26,7 @@ async function securityMiddleware(req: NextRequest): Promise<NextResponse | null
   if (req.method !== "GET") {
     const csrfToken = req.headers.get("x-csrf-token");
     if (!csrfToken || !(await validateToken(csrfToken))) {
-      logger.warn("Invalid CSRF token", { ip });
+     
       return NextResponse.json({ error: "Invalid request" }, { status: 403 });
     }
   }
@@ -37,7 +37,7 @@ async function securityMiddleware(req: NextRequest): Promise<NextResponse | null
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
   if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
-    logger.warn("Blacklisted email attempted access", { email: session.user.email });
+   
     return NextResponse.json({ error: "Access denied" }, { status: 403 });
   }
   return null;
