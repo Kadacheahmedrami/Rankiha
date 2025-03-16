@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma/prismaClient";
 import { getServerAuthSession } from "@/lib/auth";
-import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
+
 import { z } from "zod";
 import { securityMiddleware } from "@/lib/security";
 

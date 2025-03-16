@@ -171,7 +171,7 @@
       };
 
       const response = NextResponse.json(responseData);
-   
+      return response;
     } catch (error) {
       console.error("Error fetching leaderboard:", error);
       return NextResponse.json({ error: "Failed to fetch leaderboard" }, { status: 500 });
@@ -240,7 +240,7 @@
         rank: encrypt(rank.toString())
       });
       
-
+      return response;
     } catch (error) {
       console.error("Error creating/updating rating:", error);
       return NextResponse.json({ error: "Failed to save rating" }, { status: 500 });
@@ -312,7 +312,8 @@
         success: true,
         updates,
       });
-   
+      
+      return response;
     } catch (error) {
       console.error("Error updating multiple ratings:", error);
       return NextResponse.json({ error: "Failed to update ratings" }, { status: 500 });

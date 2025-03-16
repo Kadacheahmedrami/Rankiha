@@ -2,25 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/prisma/prismaClient";
-import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
+
+import { securityMiddleware } from "@/lib/security";
 
 export async function POST(request: NextRequest) {
   try {
+    // Fetch session and run the security middleware.
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { message: "You must be logged in to vote" },
-        { status: 401 }
-      );
-    }
+    const secCheck = await securityMiddleware(request, session);
+    if (secCheck) return secCheck;
 
-    if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
-      return NextResponse.json(
-        { error: "You are banned little gut" },
-        { status: 403 }
-      );
-    }
-
+    // At this point, session is guaranteed to exist.
     const body = await request.json();
     const { postId, voteType } = body;
 
@@ -31,7 +23,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if voteType is valid
+    // Validate voteType
     if (!voteType || !["upvote", "downvote", "reset"].includes(voteType)) {
       return NextResponse.json(
         { message: "Valid vote type (upvote, downvote, or reset) is required" },
@@ -57,17 +49,17 @@ export async function POST(request: NextRequest) {
     const existingVote = await prisma.vote.findUnique({
       where: {
         userId_postId: {
-          userId: session.user.id,
+          userId: session!.user!.id,
           postId: postId,
         },
       },
     });
 
     const result = await prisma.$transaction(async (tx) => {
-      // Case 1: "reset" - Remove an existing vote
+      // Case 1: "reset" - Remove an existing vote.
       if (voteType === "reset") {
         if (!existingVote) {
-          return post; // Nothing to reset
+          return post; // Nothing to reset.
         }
 
         const updatedPost = await tx.post.update({
@@ -78,11 +70,11 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // Delete the vote record
+        // Delete the vote record.
         await tx.vote.delete({
           where: {
             userId_postId: {
-              userId: session.user!.id,
+              userId: session!.user!.id,
               postId: postId,
             },
           },
@@ -91,10 +83,10 @@ export async function POST(request: NextRequest) {
         return updatedPost;
       }
 
-      // Set vote value based on vote type
+      // Set vote value based on vote type.
       const voteValue = voteType === "upvote" ? 1 : -1;
 
-      // Case 2: No existing vote - create a new vote
+      // Case 2: No existing vote - create a new vote.
       if (!existingVote) {
         const updatedPost = await tx.post.update({
           where: { id: postId },
@@ -107,7 +99,7 @@ export async function POST(request: NextRequest) {
 
         await tx.vote.create({
           data: {
-            userId: session.user!.id,
+            userId: session!.user!.id,
             postId: postId,
             value: voteValue,
           },
@@ -116,7 +108,7 @@ export async function POST(request: NextRequest) {
         return updatedPost;
       }
 
-      // Case 3: Changing vote direction (upvote to downvote or vice versa)
+      // Case 3: Changing vote direction.
       if (
         (existingVote.value === 1 && voteType === "downvote") ||
         (existingVote.value === -1 && voteType === "upvote")
@@ -136,7 +128,7 @@ export async function POST(request: NextRequest) {
         await tx.vote.update({
           where: {
             userId_postId: {
-              userId: session.user!.id,
+              userId: session!.user!.id,
               postId: postId,
             },
           },
@@ -148,15 +140,15 @@ export async function POST(request: NextRequest) {
         return updatedPost;
       }
 
-      // Case 4: Same vote type again (shouldn't happen with frontend changes)
+      // Case 4: Same vote type again (should not occur).
       return post;
     });
 
-    // Fetch the current vote status after transaction
+    // Fetch the current vote status after the transaction.
     const currentVote = await prisma.vote.findUnique({
       where: {
         userId_postId: {
-          userId: session.user.id,
+          userId: session!.user!.id,
           postId: postId,
         },
       },

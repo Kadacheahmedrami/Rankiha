@@ -1,42 +1,33 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerAuthSession } from "@/lib/auth";
-import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
 import { prisma } from "@/prisma/prismaClient";
 
-interface PostBody {
-  imgUrl: string;
-  title: string;
-}
+import { securityMiddleware } from "@/lib/security";
+import { z } from "zod";
+
+// Define a Zod schema for the request body.
+const postBodySchema = z.object({
+  imgUrl: z.string().nonempty("No file provided"),
+  title: z.string().nonempty("Title is required"),
+});
+
+interface PostBody extends z.infer<typeof postBodySchema> {}
 
 export async function POST(request: NextRequest) {
   try {
+    // Fetch session and run the reusable security middleware.
     const session = await getServerAuthSession();
-  
-    if (!session || !session.user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-  
-      if(session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)){
-        return NextResponse.json({ error: "you are banned little guy" }, { status: 403 });
-      }
+    const secCheck = await securityMiddleware(request, session);
+    if (secCheck) return secCheck;
 
+    // Parse and validate the request body using Zod.
+    const body = await request.json();
+    const parsedBody = postBodySchema.parse(body) as PostBody;
 
-        
-      const body = (await request.json()) as PostBody;
-      if (!body.imgUrl) {
-        return NextResponse.json({ error: "No file provided" }, { status: 400 });
-      }
-      if (!body.title) {
-        return NextResponse.json({ error: "Title is required" }, { status: 400 });
-      }
-
-
+    // Check that the user exists in the DB.
     const user = await prisma.user.findUnique({
-      where: {
-        id: session.user.id,
-      },
+      where: { id: session!.user!.id },
     });
-
     if (!user) {
       return NextResponse.json(
         { error: "The id is invalid!" },
@@ -44,19 +35,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Create the post.
     const post = await prisma.post.create({
       data: {
-        title: body.title,
-        imageUrl: body.imgUrl,
-        authorId: session.user.id,
+        title: parsedBody.title,
+        imageUrl: parsedBody.imgUrl,
+        authorId: session!.user!.id,
       },
     });
 
-    return NextResponse.json(post, { status: 201 });
-  } catch (error) {
+    return (NextResponse.json(post, { status: 201 }));
+  } catch (error: any) {
     console.error("Error uploading file:", error);
     return NextResponse.json(
-      { error: "Failed to upload file" },
+      { error: "Failed to upload file", message: error.message },
       { status: 500 }
     );
   }
