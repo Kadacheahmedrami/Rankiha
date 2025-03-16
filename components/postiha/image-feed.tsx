@@ -24,7 +24,7 @@ interface ImagePost {
 export default function ImageFeed() {
   const [posts, setPosts] = useState<ImagePost[]>([]);
   const [page, setPage] = useState<number>(1);
-  const [limit] = useState<number>(20);
+  const [limit] = useState<number>(6);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false);

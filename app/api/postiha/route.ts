@@ -4,25 +4,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma/prismaClient";
 import { getServerAuthSession } from "@/lib/auth";
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
+import { z } from "zod";
+import { securityMiddleware } from "@/lib/security";
 
-export async function GET(request: NextRequest) {
+// Zod schema to validate query parameters for pagination
+const queryParamsSchema = z.object({
+  page: z.preprocess(
+    (arg) => (typeof arg === "string" ? parseInt(arg, 10) : arg),
+    z.number().int().min(1).default(1)
+  ),
+  limit: z.preprocess(
+    (arg) => (typeof arg === "string" ? parseInt(arg, 10) : arg),
+    z.number().int().min(1).default(6)
+  ),
+});
+
+export async function GET(req: NextRequest) {
   try {
+    // Fetch session and run reusable security middleware.
     const session = await getServerAuthSession();
+    const secCheck = await securityMiddleware(req, session);
+    if (secCheck) return secCheck;
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
-      return NextResponse.json(
-        { error: "you are banned little guy" },
-        { status: 403 }
-      );
-    }
-
-    const searchParams = request.nextUrl.searchParams;
-    const page = Number.parseInt(searchParams.get("page") || "1");
-    const limit = Number.parseInt(searchParams.get("limit") || "20");
+    // Validate and parse query parameters using Zod.
+    const searchParams = req.nextUrl.searchParams;
+    const { page, limit } = queryParamsSchema.parse({
+      page: searchParams.get("page"),
+      limit: searchParams.get("limit"),
+    });
     const skip = (page - 1) * limit;
 
     // Get start of today for filtering posts
@@ -32,7 +41,7 @@ export async function GET(request: NextRequest) {
     // Count posts created today by the user
     const userPostCount = await prisma.post.count({
       where: {
-        authorId: session.user.id,
+        authorId: session!.user!.id,
         createdAt: {
           gte: today,
         },
@@ -46,7 +55,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch posts
+    // Fetch posts with pagination.
     const [posts, totalItems] = await Promise.all([
       prisma.post.findMany({
         where: { visible: true },
@@ -65,11 +74,10 @@ export async function GET(request: NextRequest) {
       prisma.post.count({ where: { visible: true } }),
     ]);
 
-    // Process posts
+    // Process posts: compute upvotes, downvotes, voteScore, etc.
     const processedPosts = posts.map((post) => {
       const upvotes = post.votes.filter((vote) => vote.value === 1).length;
       const downvotes = post.votes.filter((vote) => vote.value === -1).length;
-
       return {
         id: post.id,
         title: post.title,
@@ -83,7 +91,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({
+    const responseData = {
       data: processedPosts,
       pagination: {
         totalItems,
@@ -91,7 +99,9 @@ export async function GET(request: NextRequest) {
         currentPage: page,
         limit,
       },
-    });
+    };
+
+    return (NextResponse.json(responseData));
   } catch (error) {
     console.error("Error fetching posts:", error);
     return NextResponse.json(
