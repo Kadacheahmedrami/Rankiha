@@ -1,4 +1,6 @@
-import { type NextRequest, NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
+
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma/prismaClient";
 import { getServerAuthSession } from "@/app/lib/auth";
 import { BLACKLISTED_EMAILS } from "@/app/BLACKLIST/blacklist";
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
       where: {
         authorId: session.user.id,
         createdAt: {
-          gte: today, // Only count posts created from the start of today
+          gte: today,
         },
       },
     });

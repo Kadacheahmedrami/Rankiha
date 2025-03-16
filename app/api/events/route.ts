@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma/prismaClient"; // Ensure correct import path
 import { getServerAuthSession } from "@/app/lib/auth";

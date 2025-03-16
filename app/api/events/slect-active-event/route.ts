@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma/prismaClient"; // Ensure correct import path
 import { getServerAuthSession } from "@/app/lib/auth";
@@ -17,6 +19,7 @@ export async function GET(req: NextRequest) {
 
     // 🚫 Blacklist Check (Block specific users)
     if (BLACKLISTED_EMAILS.includes(session.user.email)) {
+      
       return NextResponse.json(
         { error: "You are banned little guy" },
         { status: 403 }
