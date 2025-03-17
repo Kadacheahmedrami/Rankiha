@@ -29,7 +29,6 @@ export default function Leaderboard() {
   const [searchTerm, setSearchTerm] = useState<string>("")
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false)
   const [profiles, setProfiles] = useState<Profile[]>([])
-  // Instead of currentUserData, we store just the decrypted current user's rank.
   const [currentUserRank, setCurrentUserRank] = useState<string | null>(null)
   const [page, setPage] = useState<number>(1)
   const [limit] = useState<number>(20)
@@ -42,24 +41,29 @@ export default function Leaderboard() {
   const [isCommentModalOpen, setIsCommentModalOpen] = useState<boolean>(false)
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null)
 
+  // Filter states
+  const [timeFilter, setTimeFilter] = useState<"today" | "all-time">("today")
+  const [schoolFilter, setSchoolFilter] = useState<string | null>(null)
+  const schoolOptions = ["ESTIN", "ESI", "ESISBA", "Polytechnique"]
+
   // Helper: Return vibrant classes based on tag.
   const getTagStyles = (tag?: string): string => {
-    const upperTag = (tag || "").toUpperCase();
+    const upperTag = (tag || "").toUpperCase()
     switch (upperTag) {
       case "ADMIN":
-        return "bg-gradient-to-r from-primary to-purple-500 text-white px-2 py-0.5 text-xs rounded-full shadow-lg transform hover:scale-105 transition duration-300";
+        return "bg-gradient-to-r from-primary to-purple-500 text-white px-2 py-0.5 text-xs rounded-full shadow-lg transform hover:scale-105 transition duration-300"
       case "PROFESSOR":
-        return "bg-gradient-to-r from-primary/80 to-secondary/80 text-white px-2 py-0.5 text-xs rounded-full shadow-lg transform hover:rotate-3 transition duration-300";
+        return "bg-gradient-to-r from-primary/80 to-secondary/80 text-white px-2 py-0.5 text-xs rounded-full shadow-lg transform hover:rotate-3 transition duration-300"
       case "NOURI":
-        return "bg-gradient-to-r from-primary to-purple-500 text-white px-2 py-0.5 text-xs rounded-full shadow-lg transform hover:scale-105 transition duration-300";
+        return "bg-gradient-to-r from-primary to-purple-500 text-white px-2 py-0.5 text-xs rounded-full shadow-lg transform hover:scale-105 transition duration-300"
       case "HACKER":
-        return "bg-red-500 text-white px-2 py-0.5 text-xs rounded-full border-2 border-dashed border-yellow-300 font-extrabold animate-pulse";
+        return "bg-red-500 text-white px-2 py-0.5 text-xs rounded-full border-2 border-dashed border-yellow-300 font-extrabold animate-pulse"
       case "USER":
-        return "hidden text-transparent";
+        return "hidden text-transparent"
       default:
-        return "bg-secondary/20 text-primary px-2 py-0.5 text-xs rounded-full";
+        return "bg-secondary/20 text-primary px-2 py-0.5 text-xs rounded-full"
     }
-  };
+  }
 
   // Helper: Decrypt an encrypted profile object.
   const decryptProfile = (encryptedProfile: any): Profile => ({
@@ -67,105 +71,109 @@ export default function Leaderboard() {
     name: decrypt(encryptedProfile.name),
     username: decrypt(encryptedProfile.username),
     tag: decrypt(encryptedProfile.tag),
-    rating: parseFloat(decrypt(encryptedProfile.rating)),
-    ratings: parseInt(decrypt(encryptedProfile.ratingsCount)),
-    rank: parseInt(decrypt(encryptedProfile.rank)),
+    rating: Number.parseFloat(decrypt(encryptedProfile.rating)),
+    ratings: Number.parseInt(decrypt(encryptedProfile.ratingsCount)),
+    rank: Number.parseInt(decrypt(encryptedProfile.rank)),
     change: encryptedProfile.change,
     image: encryptedProfile.image || "",
-  });
+  })
 
   // Fetch leaderboard data, decrypt it, and update state.
   const fetchLeaderboard = async (): Promise<void> => {
     try {
-      const queryParams = new URLSearchParams();
-      if (searchTerm) queryParams.append("search", searchTerm);
-      queryParams.append("page", page.toString());
-      queryParams.append("limit", limit.toString());
-      const query = "?" + queryParams.toString();
-      const res = await fetch(`/api/leaderboard${query}`);
-      if (!res.ok) return;
+      const queryParams = new URLSearchParams()
+      if (searchTerm) queryParams.append("search", searchTerm)
+      queryParams.append("page", page.toString())
+      queryParams.append("limit", limit.toString())
+      // Map client filter values to API expected values.
+      const timeRangeParam = timeFilter === "today" ? "Today" : "All Time"
+      queryParams.append("timeRange", timeRangeParam)
+      if (schoolFilter) queryParams.append("school", schoolFilter)
+      const query = "?" + queryParams.toString()
+      const res = await fetch(`/api/leaderboard${query}`)
+      if (!res.ok) return
 
-      const json = await res.json();
+      const json = await res.json()
       // Decrypt each leaderboard profile.
-      const decryptedProfiles = json.data.map((profile: any) => decryptProfile(profile));
-      
+      const decryptedProfiles = json.data.map((profile: any) => decryptProfile(profile))
+
       if (page === 1) {
-        setProfiles(decryptedProfiles);
+        setProfiles(decryptedProfiles)
       } else {
-        setProfiles(prev => [...prev, ...decryptedProfiles]);
+        setProfiles((prev) => [...prev, ...decryptedProfiles])
       }
-      setTotalPages(json.pagination.totalPages);
-      
-      // Instead of full user data, only decrypt the current user's rank.
+      setTotalPages(json.pagination.totalPages)
+
+      // Decrypt and set the current user's rank.
       if (json.currentUserRank) {
-        setCurrentUserRank(decrypt(json.currentUserRank));
+        setCurrentUserRank(decrypt(json.currentUserRank))
       } else {
-        setCurrentUserRank(null);
+        setCurrentUserRank(null)
       }
-      setIsFetchingMore(false);
+      setIsFetchingMore(false)
     } catch (error) {
-      setIsFetchingMore(false);
-      console.error("Error fetching leaderboard:", error);
+      setIsFetchingMore(false)
+      console.error("Error fetching leaderboard:", error)
     }
-  };
+  }
 
   // Handle rating change submissions.
   const handleRatingChange = async (profile: Profile, newRating: number): Promise<void> => {
     if (session?.user?.id === decrypt(profile.id)) {
-      toast.error("You cannot rate yourself");
-      return;
+      toast.error("You cannot rate yourself")
+      return
     }
     try {
       const response: Response = await fetch("/api/rating", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ratedUserId: decrypt(profile.id), value: newRating }),
-      });
+      })
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Error rating profile:", errorData.error || response.statusText);
-        return;
+        const errorData = await response.json()
+        console.error("Error rating profile:", errorData.error || response.statusText)
+        return
       }
-      await response.json();
-      await fetchLeaderboard();
+      await response.json()
+      await fetchLeaderboard()
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error("Error submitting rating:", error.message);
+        console.error("Error submitting rating:", error.message)
       } else {
-        console.error("An unexpected error occurred while submitting the rating.");
+        console.error("An unexpected error occurred while submitting the rating.")
       }
     }
-  };
+  }
 
   // Open comment modal.
   const handleOpenCommentModal = (profile: Profile) => {
     if (session?.user?.id === decrypt(profile.id)) {
-      toast.error("You cannot comment on your own profile");
-      return;
+      toast.error("You cannot comment on your own profile")
+      return
     }
     if (!session?.user) {
-      toast.error("Please sign in to leave a comment");
-      return;
+      toast.error("Please sign in to leave a comment")
+      return
     }
-    setSelectedProfile(profile);
-    setIsCommentModalOpen(true);
-  };
+    setSelectedProfile(profile)
+    setIsCommentModalOpen(true)
+  }
 
   // Handle comment submission.
   const handleCommentSubmit = async (comment: string): Promise<boolean> => {
-    if (!selectedProfile) return false;
-    const trimmedComment = comment.trim();
+    if (!selectedProfile) return false
+    const trimmedComment = comment.trim()
     if (trimmedComment.length === 0) {
-      toast.error("Comment cannot be empty. Please enter a comment.");
-      return false;
+      toast.error("Comment cannot be empty. Please enter a comment.")
+      return false
     }
     if (trimmedComment.length < 3) {
-      toast.error("Comment is too short. Please enter at least 3 characters.");
-      return false;
+      toast.error("Comment is too short. Please enter at least 3 characters.")
+      return false
     }
     if (trimmedComment.length > 500) {
-      toast.error("Comment is too long. Please limit your comment to 500 characters.");
-      return false;
+      toast.error("Comment is too long. Please limit your comment to 500 characters.")
+      return false
     }
     try {
       const response = await fetch("/api/comment", {
@@ -175,54 +183,57 @@ export default function Leaderboard() {
           targetUserId: selectedProfile.id,
           content: trimmedComment,
         }),
-      });
+      })
       if (!response.ok) {
-        const errorData = await response.json();
-        toast.error(errorData.error || "Failed to post comment");
-        return false;
+        const errorData = await response.json()
+        toast.error(errorData.error || "Failed to post comment")
+        return false
       }
-      toast.success("Comment posted successfully");
-      return true;
+      toast.success("Comment posted successfully")
+      return true
     } catch (error) {
-      toast.error("Failed to post comment");
-      return false;
+      toast.error("Failed to post comment")
+      return false
     }
-  };
+  }
 
   // Debounce search term changes and re-fetch leaderboard.
   useEffect(() => {
-    setPage(1);
+    setPage(1)
     const delayDebounceFn = setTimeout(() => {
-      fetchLeaderboard();
-    }, 300);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
+      fetchLeaderboard()
+    }, 300)
+    return () => clearTimeout(delayDebounceFn)
+  }, [searchTerm, timeFilter, schoolFilter])
 
   // Re-fetch leaderboard when page changes.
   useEffect(() => {
-    fetchLeaderboard();
-  }, [page]);
+    fetchLeaderboard()
+  }, [page])
 
   // Infinite scroll: load next page when near bottom.
   useEffect(() => {
     const handleScroll = () => {
-      if (isFetchingMore) return;
-      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 && page < totalPages) {
-        setIsFetchingMore(true);
-        setPage(prev => prev + 1);
+      if (isFetchingMore) return
+      if (
+        window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 &&
+        page < totalPages
+      ) {
+        setIsFetchingMore(true)
+        setPage((prev) => prev + 1)
       }
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [isFetchingMore, page, totalPages]);
+    }
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [isFetchingMore, page, totalPages])
 
   // Focus the search input on mount.
   useEffect(() => {
     const timer = setTimeout(() => {
-      searchInputRef.current?.focus();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
+      searchInputRef.current?.focus()
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   return (
     <div className="flex flex-col gap-2 px-2 ">
@@ -232,7 +243,9 @@ export default function Leaderboard() {
           <div className="absolute inset-0 -m-1 bg-gradient-to-r from-primary to-purple-500/50 rounded-2xl blur-md opacity-70 animate-pulse-glow"></div>
           <div className="relative bg-secondary/30 backdrop-blur-sm rounded-xl border border-primary/30 shadow-xl overflow-hidden">
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-              <Search className={`h-5 w-5 transition-colors duration-300 ${isSearchFocused ? "text-primary" : "text-primary/70"}`} />
+              <Search
+                className={`h-5 w-5 transition-colors duration-300 ${isSearchFocused ? "text-primary" : "text-primary/70"}`}
+              />
             </div>
             <Input
               ref={searchInputRef}
@@ -257,6 +270,75 @@ export default function Leaderboard() {
               <div className="h-8 p-1 font-bold text-lg rounded-lg bg-primary flex items-center justify-center shadow-md sm:h-10 sm:p-2 sm:text-2xl">
                 <div>#{currentUserRank ? currentUserRank : "N/A"}</div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="mt-4 mb-4 bg-secondary/10 rounded-xl p-3 border border-primary/10 shadow-sm">
+        <div className="flex flex-row items-center flex-wrap gap-4">
+          {/* Filter Label */}
+          <h3 className="text-sm font-medium text-muted-foreground">Filters:</h3>
+
+          {/* Time Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium whitespace-nowrap">Time Range:</span>
+            <div className="flex rounded-lg overflow-hidden border border-primary/30 shadow-sm">
+              <Button
+                variant={timeFilter === "today" ? "default" : "ghost"}
+                size="sm"
+                className={`rounded-none h-8 px-3 ${timeFilter === "today" ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-foreground"}`}
+                onClick={() => {
+                  setTimeFilter("today")
+                  setPage(1)
+                }}
+              >
+                Today
+              </Button>
+              <Button
+                variant={timeFilter === "all-time" ? "default" : "ghost"}
+                size="sm"
+                className={`rounded-none h-8 px-3 ${timeFilter === "all-time" ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-foreground"}`}
+                onClick={() => {
+                  setTimeFilter("all-time")
+                  setPage(1)
+                }}
+              >
+                All Time
+              </Button>
+            </div>
+          </div>
+
+          {/* School Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium whitespace-nowrap">School:</span>
+            <div className="flex flex-wrap gap-1">
+              <Button
+                variant={schoolFilter === null ? "default" : "ghost"}
+                size="sm"
+                className={`h-8 px-3 ${schoolFilter === null ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-foreground"}`}
+                onClick={() => {
+                  setSchoolFilter(null)
+                  setPage(1)
+                }}
+              >
+                All
+              </Button>
+              {schoolOptions.map((school) => (
+                <Button
+                  key={school}
+                  variant={schoolFilter === school ? "default" : "ghost"}
+                  size="sm"
+                  className={`h-8 px-3 ${schoolFilter === school ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-foreground"}`}
+                  onClick={() => {
+                    setSchoolFilter(school)
+                    setPage(1)
+                  }}
+                >
+                  {school}
+                </Button>
+              ))}
             </div>
           </div>
         </div>
@@ -327,7 +409,9 @@ export default function Leaderboard() {
                         </p>
                       </div>
                     </div>
-                    <span className={getTagStyles(profile.tag) + " inline md:hidden ml-auto mb-auto"}>{profile.tag}</span>
+                    <span className={getTagStyles(profile.tag) + " inline md:hidden ml-auto mb-auto"}>
+                      {profile.tag}
+                    </span>
                   </div>
 
                   {/* Mobile layout: Bottom row with rating and buttons */}
@@ -376,9 +460,14 @@ export default function Leaderboard() {
                 <Search className="h-8 w-8 text-muted-foreground mx-auto mb-3 opacity-50 sm:h-12 sm:w-12 sm:mb-4" />
                 <h3 className="text-lg font-medium mb-2 sm:text-xl">No profiles found</h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto sm:text-base">
-                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all profiles.
+                  We couldn't find any profiles matching "{searchTerm}". Try a different search term or browse all
+                  profiles.
                 </p>
-                <Button variant="outline" className="mt-3 glow-effect text-sm sm:mt-4" onClick={() => setSearchTerm("")}>
+                <Button
+                  variant="outline"
+                  className="mt-3 glow-effect text-sm sm:mt-4"
+                  onClick={() => setSearchTerm("")}
+                >
                   Show all profiles
                 </Button>
               </div>
@@ -405,5 +494,5 @@ export default function Leaderboard() {
         />
       )}
     </div>
-  );
+  )
 }

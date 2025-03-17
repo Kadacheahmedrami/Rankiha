@@ -26,30 +26,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Run security middleware checks.
     const secCheck = await securityMiddleware(req, session);
     if (secCheck) return secCheck;
-
-    // Additional check if session is missing
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     // Blacklist check is already handled by securityMiddleware,
     // but you can keep this additional check if needed.
-    if (session.user.email && BLACKLISTED_EMAILS.includes(session.user.email)) {
-      return NextResponse.json(
-        { error: "you are banned little guy" },
-        { status: 403 }
-      );
-    }
+
 
     // Upsert user in the database
     await prisma.user.upsert({
-      where: { id: session.user.id },
+      where: { id: session!.user!.id },
       update: {},
       create: {
-        id: session.user.id,
-        email: session.user.email!,
-        name: session.user.name || null,
-        image: session.user.image || null,
+        id: session!.user!.id,
+        email: session!.user!.email!,
+        name: session!.user!.name || null,
+        image: session!.user!.image || null,
       },
     });
 
@@ -71,7 +60,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     // Prevent users from commenting on themselves
-    if (session.user.id === targetUserId) {
+    if (session!.user!.id === targetUserId) {
       return NextResponse.json(
         { error: "You cannot comment on yourself" },
         { status: 400 }
@@ -80,7 +69,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Limit the number of comments a user can make
     const userCommentCount = await prisma.comment.count({
-      where: { authorId: session.user.id },
+      where: { authorId: session!.user!.id },
     });
 
     if (userCommentCount >= 150) {
@@ -94,7 +83,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const comment = await prisma.comment.create({
       data: {
         content: content.trim(),
-        author: { connect: { id: session.user.id } },
+        author: { connect: { id: session!.user!.id } },
         targetUser: { connect: { id: targetUserId } },
       },
     });

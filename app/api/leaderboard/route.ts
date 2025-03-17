@@ -8,6 +8,13 @@
   // Constants for pagination (could also be moved to a config file)
   const DEFAULT_PAGE_SIZE = 20;
 
+  const SCHOOL_DOMAINS = {
+    ESTIN: '@estin.dz',
+    ESI: '@esi.dz',
+    ESISBA: '@esisba.dz',
+    POLYTECH: '@polytech.dz'
+  };
+  
   // Input validation schemas
   const ratingSchema = z.object({
     ratedUserId: z.string().uuid(),
@@ -21,8 +28,12 @@
   const queryParamsSchema = z.object({
     search: z.string().optional(),
     limit: z.number().int().min(1).max(30).optional(),
-    page: z.number().int().min(1).optional()
+    page: z.number().int().min(1).optional(),
+    // Add new parameters:
+    school: z.enum(['All', 'ESTIN', 'ESI', 'ESISBA', 'POLYTECH']).optional(),
+    timeRange: z.enum(['Today', 'All Time']).optional(),
   });
+  
 
   /**
    * Helper: Calculate current rank for a given user using the provided sorted users array.
@@ -39,21 +50,46 @@
    */
   export async function GET(req: NextRequest) {
     try {
-      // Fetch session once.
+      // Fetch session and perform security check.
       const session = await getServerAuthSession();
       const secCheck = await securityMiddleware(req, session);
       if (secCheck) return secCheck;
-
+  
       const searchParams = req.nextUrl.searchParams;
-      const { search = "", limit = DEFAULT_PAGE_SIZE, page = 1 } = queryParamsSchema.parse({
+  
+      // Parse query parameters using the extended schema.
+      const {
+        search = "",
+        limit = DEFAULT_PAGE_SIZE,
+        page = 1,
+        school = "All",
+        timeRange = "AllTime",
+      } = queryParamsSchema.parse({
         search: searchParams.get("search") || undefined,
-        limit: searchParams.get("limit") ? parseInt(searchParams.get("limit") as string) : undefined,
-        page: searchParams.get("page") ? parseInt(searchParams.get("page") as string) : undefined,
+        limit: searchParams.get("limit")
+          ? parseInt(searchParams.get("limit") as string)
+          : undefined,
+        page: searchParams.get("page")
+          ? parseInt(searchParams.get("page") as string)
+          : undefined,
+        school: searchParams.get("school") || undefined,
+        timeRange: searchParams.get("timeRange") || undefined,
       });
+  
       const skip = (page - 1) * limit;
-
-      // Fetch paginated users.
-      const users = await prisma.$queryRaw<any[]>`
+  
+      // Build dynamic SQL filters.
+      const schoolFilter =
+        school !== "All" ? ` AND u.email ILIKE '%${SCHOOL_DOMAINS[school]}%'` : "";
+     
+      const ratingJoinCondition =
+        timeRange === "Today"
+          ? ` AND r."createdAt" >= CURRENT_DATE`
+          : "";
+  
+      // Main query: fetch paginated users with filters.
+      
+      const usersQuery = `
         SELECT 
           u.tag, 
           u.id, 
@@ -63,59 +99,85 @@
           COUNT(r.id) as "ratingsCount",
           u."createdAt"
         FROM "User" u
-        LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
-        WHERE u.visible = true AND (u.name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
+        LEFT JOIN "Rating" r ON u.id = r."ratedUserId" ${ratingJoinCondition}
+        WHERE u.visible = true 
+          AND (u.name ILIKE '%${search}%' OR u.email ILIKE '%${search}%')
+          ${schoolFilter}
         GROUP BY u.id, u."createdAt"
         ORDER BY rating DESC, "ratingsCount" DESC, u."createdAt" ASC
         LIMIT ${limit} OFFSET ${skip}
       `;
-
-      const countResult = await prisma.$queryRaw<{ count: string }[]>`
+      const users = (await prisma.$queryRawUnsafe(usersQuery)) as {
+        tag: string;
+        id: string;
+        name: string;
+        email: string;
+        rating: number;
+        ratingsCount: number;
+        createdAt: string;
+      }[];
+  
+      // Count query: get total number of users for pagination.
+      const countQuery = `
         SELECT COUNT(*) as count
         FROM "User" u
-        WHERE u.visible = true AND (u.name ILIKE ${`%${search}%`} OR u.email ILIKE ${`%${search}%`})
+        WHERE u.visible = true 
+          AND (u.name ILIKE '%${search}%' OR u.email ILIKE '%${search}%')
+          ${schoolFilter}
       `;
+      const countResult = (await prisma.$queryRawUnsafe(countQuery)) as { count: string }[];
       const totalCount = parseInt(countResult[0].count);
       const totalPages = Math.ceil(totalCount / limit);
-
-      // Fetch previous leaderboard data for change indicators.
-      const previousRankings = await prisma.$queryRaw<any[]>`
+  
+      // Build time condition for previous rankings.
+      const previousTimeCondition =
+        timeRange === "Today"
+          ? `r."createdAt" < CURRENT_DATE`
+          : `r."createdAt" < NOW() - INTERVAL '24 HOURS'`;
+  
+      // Query for previous rankings (used to calculate ranking changes).
+      const previousRankingsQuery = `
         SELECT 
           u.id, 
           COALESCE(AVG(r.value)::FLOAT, 0) as rating,
           COUNT(r.id) as "ratingsCount"
         FROM "User" u
         LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
-        WHERE u.visible = true AND r."createdAt" < NOW() - INTERVAL '24 HOURS'
+        WHERE u.visible = true 
+          AND ${previousTimeCondition}
+          ${schoolFilter}
         GROUP BY u.id
         ORDER BY rating DESC, "ratingsCount" DESC
       `;
-      const prevRankingsMap = new Map<string, number>();
-      previousRankings.forEach((user, index) => {
-        prevRankingsMap.set(user.id, index + 1);
-      });
-
-      // Build leaderboard response.
-      const leaderboard = users.map((user, index) => {
-        const currentRank = skip + index + 1;
-        const previousRank = prevRankingsMap.get(user.id) || currentRank;
-        let change: "up" | "down" | "same" = "same";
-        if (previousRank < currentRank) change = "down";
-        if (previousRank > currentRank) change = "up";
-
-        return {
-          id: encrypt(user.id),
-          name: encrypt(user.name),
-          username: encrypt(user.email),
-          tag: encrypt(user.tag),
-          rating: encrypt(parseFloat(user.rating.toFixed(2)).toString()),
-          ratingsCount: encrypt(user.ratingsCount.toString()),
-          rank: encrypt(currentRank.toString()),
-          change,
-        };
-      });
-
-      // Compute current user's global rank using a dedicated SQL query.
+      const previousRankings = (await prisma.$queryRawUnsafe(previousRankingsQuery)) as {
+        id: string;
+        rating: number;
+        ratingsCount: number;
+      }[];
+  
+      // Build leaderboard array.
+      const leaderboard = users.map(
+        (user: { id: string; tag: string; name: string; email: string; rating: number; ratingsCount: number; createdAt: string }, index: number) => {
+          const currentRank = skip + index + 1;
+          const previousRank = previousRankings.findIndex((prev) => prev.id === user.id) + 1 || currentRank;
+          let change: "up" | "down" | "same" = "same";
+          if (previousRank < currentRank) change = "down";
+          if (previousRank > currentRank) change = "up";
+  
+          return {
+            id: encrypt(user.id),
+            name: encrypt(user.name),
+            username: encrypt(user.email),
+            tag: encrypt(user.tag),
+            rating: encrypt(parseFloat(user.rating.toFixed(2)).toString()),
+            ratingsCount: encrypt(user.ratingsCount.toString()),
+            rank: encrypt(currentRank.toString()),
+            change,
+          };
+        }
+      );
+  
+      // Compute current user's global rank.
       let currentUserRank = null;
       if (session?.user?.id) {
         const currentUserProfile = await prisma.user.findUnique({
@@ -123,22 +185,30 @@
           select: { id: true, visible: true },
         });
         if (currentUserProfile && currentUserProfile.visible) {
-          const currentUserData = await prisma.$queryRaw<any[]>`
+          const currentUserDataQuery = `
             SELECT 
               COALESCE(AVG(r.value)::FLOAT, 0) as rating,
               COUNT(r.id) as "ratingsCount",
               u."createdAt"
             FROM "User" u
-            LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
-            WHERE u.visible = true AND u.id = ${session.user.id}
+            LEFT JOIN "Rating" r ON u.id = r."ratedUserId" ${ratingJoinCondition}
+            WHERE u.visible = true 
+              AND u.id = '${session.user.id}'
+              ${schoolFilter}
             GROUP BY u.id, u."createdAt"
           `;
+          const currentUserData = (await prisma.$queryRawUnsafe(currentUserDataQuery)) as {
+            rating: string;
+            ratingsCount: string;
+            createdAt: string;
+          }[];
+  
           if (currentUserData.length > 0) {
             const currentUserRating = parseFloat(currentUserData[0].rating);
             const currentUserRatingsCount = parseInt(currentUserData[0].ratingsCount);
             const currentUserCreatedAt = new Date(currentUserData[0].createdAt);
-
-            const betterRankedUsersCount = await prisma.$queryRaw<[{ count: string }]>`
+  
+            const betterRankedUsersCountQuery = `
               SELECT COUNT(*) as count
               FROM "User" u
               LEFT JOIN (
@@ -147,175 +217,128 @@
                   AVG(value) as avg_rating, 
                   COUNT(*) as ratings_count
                 FROM "Rating"
+                ${
+                  timeRange === "Today"
+                    ? `WHERE "createdAt" >= CURRENT_DATE`
+                    : ""
+                }
                 GROUP BY "ratedUserId"
               ) r ON u.id = r."ratedUserId"
               WHERE 
                 u.visible = true 
+                ${schoolFilter}
                 AND (
                   (COALESCE(r.avg_rating, 0) > ${currentUserRating})
                   OR (COALESCE(r.avg_rating, 0) = ${currentUserRating} AND COALESCE(r.ratings_count, 0) > ${currentUserRatingsCount})
-                  OR (COALESCE(r.avg_rating, 0) = ${currentUserRating} AND COALESCE(r.ratings_count, 0) = ${currentUserRatingsCount} AND u."createdAt" < ${currentUserCreatedAt})
+                  OR (COALESCE(r.avg_rating, 0) = ${currentUserRating} AND COALESCE(r.ratings_count, 0) = ${currentUserRatingsCount} AND u."createdAt" < '${currentUserCreatedAt.toISOString()}')
                 )
             `;
-            
+            const betterRankedUsersCount = (await prisma.$queryRawUnsafe(betterRankedUsersCountQuery)) as [{ count: string }];
             const rank = parseInt(betterRankedUsersCount[0].count) + 1;
             currentUserRank = encrypt(rank.toString());
           }
         }
       }
-
+  
       const responseData = {
         data: leaderboard,
         pagination: { total: totalCount, page, limit, totalPages },
         currentUserRank,
       };
-
-      const response = NextResponse.json(responseData);
-      return response;
+  
+      return NextResponse.json(responseData);
     } catch (error) {
       console.error("Error fetching leaderboard:", error);
-      return NextResponse.json({ error: "Failed to fetch leaderboard" }, { status: 500 });
-    }
-  }
-
-  /**
-   * POST: Create or update a rating.
-   */
-  export async function POST(req: NextRequest) {
-    try {
-      // Fetch session once.
-      const session = await getServerAuthSession();
-      const secCheck = await securityMiddleware(req, session);
-      if (secCheck) return secCheck;
-      
-      const currentUser = session?.user;
-      const body = await req.json();
-      const { ratedUserId, value } = body;
-      
-      if (!ratedUserId || typeof value !== 'number' || value < 1 || value > 5) {
-        return NextResponse.json({ error: "Invalid rating data" }, { status: 400 });
-      }
-      
-      if (currentUser?.id === ratedUserId) {
-        return NextResponse.json({ error: "You cannot rate yourself" }, { status: 400 });
-      }
-      
-      const ratedUser = await prisma.user.findUnique({ where: { id: ratedUserId, visible: true } });
-      if (!ratedUser) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
-      }
-      
-      await prisma.rating.upsert({
-        where: { userId_ratedUserId: { userId: currentUser!.id, ratedUserId } },
-        update: { value },
-        create: { userId: currentUser!.id, ratedUserId, value },
-      });
-      
-      const userRatings = await prisma.rating.findMany({ where: { ratedUserId } });
-      const ratingsCount = userRatings.length;
-      const averageRating = ratingsCount > 0 
-        ? userRatings.reduce((sum, r) => sum + r.value, 0) / ratingsCount 
-        : 0;
-      const averageRatingRounded = parseFloat(averageRating.toFixed(1));
-      
-      const usersForRank = await prisma.$queryRaw<Array<{ id: string }>>`
-        SELECT 
-          u.id,
-          COALESCE(AVG(r.value)::FLOAT, 0) as rating,
-          COUNT(r.id) as "ratingsCount",
-          u."createdAt"
-        FROM "User" u
-        LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
-        WHERE u.visible = true
-        GROUP BY u.id, u."createdAt"
-        ORDER BY rating DESC, "ratingsCount" DESC, u."createdAt" ASC
-      `;
-      const rank = getUserRank({ id: ratedUserId, users: usersForRank });
-      
-      const response = NextResponse.json({
-        success: true,
-        id: ratedUserId,
-        rating: encrypt(averageRatingRounded.toString()),
-        ratingsCount: encrypt(ratingsCount.toString()),
-        rank: encrypt(rank.toString())
-      });
-      
-      return response;
-    } catch (error) {
-      console.error("Error creating/updating rating:", error);
-      return NextResponse.json({ error: "Failed to save rating" }, { status: 500 });
-    }
-  }
-
-  /**
-   * PATCH: Batch update multiple ratings in a transaction.
-   */
-  export async function PATCH(req: NextRequest) {
-    try {
-      const session = await getServerAuthSession();
-      const secCheck = await securityMiddleware(req, session);
-      if (secCheck) return secCheck;
-      
-      const currentUser = session?.user;
-      // Validate and parse the request body using Zod's batchRatingSchema.
-      const { ratings } = batchRatingSchema.parse(await req.json());
-      
-      // Check for self-rating.
-      if (ratings.some(r => r.ratedUserId === currentUser?.id)) {
-        return NextResponse.json({ error: "Invalid rating data or self-rating detected" }, { status: 400 });
-      }
-      
-      // Update ratings in a transaction.
-      await prisma.$transaction(
-        ratings.map(r => 
-          prisma.rating.upsert({
-            where: { userId_ratedUserId: { userId: currentUser!.id, ratedUserId: r.ratedUserId } },
-            update: { value: r.value },
-            create: { userId: currentUser!.id, ratedUserId: r.ratedUserId, value: r.value },
-          })
-        )
+      return NextResponse.json(
+        { error: "Failed to fetch leaderboard" },
+        { status: 500 }
       );
-      
-      const updates = await Promise.all(
-        [...new Set(ratings.map(r => r.ratedUserId))].map(async (userId) => {
-          const userRatings = await prisma.rating.findMany({ where: { ratedUserId: userId } });
-          const ratingsCount = userRatings.length;
-          const averageRating = ratingsCount > 0 
-            ? userRatings.reduce((sum, r) => sum + r.value, 0) / ratingsCount 
-            : 0;
-          const averageRatingRounded = parseFloat(averageRating.toFixed(1));
-          
-          const usersForRank = await prisma.$queryRaw`
-            SELECT 
-              u.id,
-              COALESCE(AVG(r.value)::FLOAT, 0) as rating,
-              COUNT(r.id) as "ratingsCount",
-              u."createdAt"
-            FROM "User" u
-            LEFT JOIN "Rating" r ON u.id = r."ratedUserId"
-            WHERE u.visible = true
-            GROUP BY u.id, u."createdAt"
-            ORDER BY rating DESC, "ratingsCount" DESC, u."createdAt" ASC
-          `;
-          const rank = getUserRank({ id: userId, users: usersForRank as any[] });
-          
-          return {
-            id: userId,
-            rating: encrypt(averageRatingRounded.toString()),
-            ratingsCount: encrypt(ratingsCount.toString()),
-            rank: encrypt(rank.toString()),
-          };
-        })
-      );
-      
-      const response = NextResponse.json({
-        success: true,
-        updates,
-      });
-      
-      return response;
-    } catch (error) {
-      console.error("Error updating multiple ratings:", error);
-      return NextResponse.json({ error: "Failed to update ratings" }, { status: 500 });
     }
   }
+  
+
+/**
+ * POST: Create or update a rating.
+ */
+export async function POST(req: NextRequest) {
+  try {
+    // Fetch session and perform security check.
+    const session = await getServerAuthSession();
+    const secCheck = await securityMiddleware(req, session);
+    if (secCheck) return secCheck;
+
+    const currentUser = session?.user;
+    const body = await req.json();
+    const { ratedUserId, value } = body;
+
+    // Validate rating payload.
+    if (!ratedUserId || typeof value !== "number" || value < 1 || value > 5) {
+      return NextResponse.json({ error: "Invalid rating data" }, { status: 400 });
+    }
+    if (currentUser?.id === ratedUserId) {
+      return NextResponse.json({ error: "You cannot rate yourself" }, { status: 400 });
+    }
+
+    const ratedUser = await prisma.user.findUnique({ where: { id: ratedUserId, visible: true } });
+    if (!ratedUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Upsert the rating.
+    await prisma.rating.upsert({
+      where: { userId_ratedUserId: { userId: currentUser!.id, ratedUserId } },
+      update: { value },
+      create: { userId: currentUser!.id, ratedUserId, value },
+    });
+
+    // Recalculate the aggregate rating.
+    const userRatings = await prisma.rating.findMany({ where: { ratedUserId } });
+    const ratingsCount = userRatings.length;
+    const averageRating = ratingsCount > 0
+      ? userRatings.reduce((sum, r) => sum + r.value, 0) / ratingsCount
+      : 0;
+    const averageRatingRounded = parseFloat(averageRating.toFixed(1));
+
+    // Define filtering defaults for ranking recalculation.
+    const school = "All";        // Use "All" or extract from query/body if needed.
+   const timeRange: "Today" | "All Time" = "All Time";
+
+    const schoolFilter =
+      school !== "All" ? ` AND u.email ILIKE '%${SCHOOL_DOMAINS[school]}%'` : "";
+      const ratingJoinCondition =
+      (timeRange as "Today" | "All Time") === "Today"
+        ? ` AND r."createdAt" >= CURRENT_DATE`
+        : "";
+    
+    // Use dynamic SQL to fetch all users (with filters) to determine ranking.
+    const usersForRankQuery = `
+      SELECT 
+        u.id,
+        COALESCE(AVG(r.value)::FLOAT, 0) as rating,
+        COUNT(r.id) as "ratingsCount",
+        u."createdAt"
+      FROM "User" u
+      LEFT JOIN "Rating" r ON u.id = r."ratedUserId" ${ratingJoinCondition}
+      WHERE u.visible = true
+      ${schoolFilter}
+      GROUP BY u.id, u."createdAt"
+      ORDER BY rating DESC, "ratingsCount" DESC, u."createdAt" ASC
+    `;
+    const usersForRank = (await prisma.$queryRawUnsafe(usersForRankQuery)) as Array<{
+      id: string;
+    }>;
+
+    const rank = getUserRank({ id: ratedUserId, users: usersForRank });
+
+    return NextResponse.json({
+      success: true,
+      id: ratedUserId,
+      rating: encrypt(averageRatingRounded.toString()),
+      ratingsCount: encrypt(ratingsCount.toString()),
+      rank: encrypt(rank.toString()),
+    });
+  } catch (error) {
+    console.error("Error creating/updating rating:", error);
+    return NextResponse.json({ error: "Failed to save rating" }, { status: 500 });
+  }
+}
