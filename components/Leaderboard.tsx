@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { MessageSquare, Search } from "lucide-react"
+import { MessageSquare, Search, SlidersHorizontal } from "lucide-react"
 import Link from "next/link"
 import RatingStars from "@/components/rating-stars"
 import { useEffect, useState, useRef } from "react"
@@ -11,6 +11,7 @@ import { useSession } from "next-auth/react"
 import { toast } from "react-hot-toast"
 import CommentModal from "@/components/comment-modal"
 import { decrypt } from "@/lib/encryption"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
 // Extended Profile interface (after decryption) for leaderboard items.
 interface Profile {
@@ -36,14 +37,20 @@ export default function Leaderboard() {
   const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const { data: session } = useSession()
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false)
 
   // Comment modal state
   const [isCommentModalOpen, setIsCommentModalOpen] = useState<boolean>(false)
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null)
 
-  // Filter states
+  // Main filter states (these trigger API calls)
   const [timeFilter, setTimeFilter] = useState<"today" | "all-time">("today")
   const [schoolFilter, setSchoolFilter] = useState<string | null>(null)
+
+  // Temporary filter states for mobile sheet (these don't trigger API calls)
+  const [tempTimeFilter, setTempTimeFilter] = useState<"today" | "all-time">("today")
+  const [tempSchoolFilter, setTempSchoolFilter] = useState<string | null>(null)
+
   const schoolOptions = ["ESTIN", "ESI", "ESISBA", "Polytechnique"]
 
   // Helper: Return vibrant classes based on tag.
@@ -197,6 +204,21 @@ export default function Leaderboard() {
     }
   }
 
+  // Apply filters from mobile sheet and trigger fetch
+  const applyFilters = () => {
+    setTimeFilter(tempTimeFilter)
+    setSchoolFilter(tempSchoolFilter)
+    setPage(1)
+    setIsFilterSheetOpen(false)
+  }
+
+  // Initialize temp filters when sheet opens
+  const handleOpenFilterSheet = () => {
+    setTempTimeFilter(timeFilter)
+    setTempSchoolFilter(schoolFilter)
+    setIsFilterSheetOpen(true)
+  }
+
   // Debounce search term changes and re-fetch leaderboard.
   useEffect(() => {
     setPage(1)
@@ -215,10 +237,7 @@ export default function Leaderboard() {
   useEffect(() => {
     const handleScroll = () => {
       if (isFetchingMore) return
-      if (
-        window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 &&
-        page < totalPages
-      ) {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 && page < totalPages) {
         setIsFetchingMore(true)
         setPage((prev) => prev + 1)
       }
@@ -234,6 +253,163 @@ export default function Leaderboard() {
     }, 500)
     return () => clearTimeout(timer)
   }, [])
+
+  // Filter components for desktop
+  const DesktopFilters = () => (
+    <div className="hidden md:flex mt-4 mb-4 bg-secondary/10 rounded-xl p-4 border border-primary/10 shadow-sm">
+      <div className="flex flex-row items-center flex-wrap gap-6 w-full">
+        {/* Filter Label */}
+        <h3 className="text-sm font-medium text-muted-foreground">Filters:</h3>
+
+        {/* Time Filter */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium whitespace-nowrap">Time Range:</span>
+          <div className="flex rounded-lg overflow-hidden border border-primary/30 shadow-sm">
+            <Button
+              variant={timeFilter === "today" ? "default" : "ghost"}
+              size="sm"
+              className={`rounded-none h-8 px-4 ${timeFilter === "today" ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-foreground"}`}
+              onClick={() => {
+                setTimeFilter("today")
+                setPage(1)
+              }}
+            >
+              Today
+            </Button>
+            <Button
+              variant={timeFilter === "all-time" ? "default" : "ghost"}
+              size="sm"
+              className={`rounded-none h-8 px-4 ${timeFilter === "all-time" ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-foreground"}`}
+              onClick={() => {
+                setTimeFilter("all-time")
+                setPage(1)
+              }}
+            >
+              All Time
+            </Button>
+          </div>
+        </div>
+
+        {/* School Filter */}
+        <div className="flex items-center gap-3 ml-auto">
+          <span className="text-xs font-medium whitespace-nowrap">School:</span>
+          <div className="flex flex-wrap gap-1">
+            <Button
+              variant={schoolFilter === null ? "default" : "ghost"}
+              size="sm"
+              className={`h-8 px-3 ${schoolFilter === null ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-foreground"}`}
+              onClick={() => {
+                setSchoolFilter(null)
+                setPage(1)
+              }}
+            >
+              All
+            </Button>
+            {schoolOptions.map((school) => (
+              <Button
+                key={school}
+                variant={schoolFilter === school ? "default" : "ghost"}
+                size="sm"
+                className={`h-8 px-3 ${schoolFilter === school ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-foreground"}`}
+                onClick={() => {
+                  setSchoolFilter(school)
+                  setPage(1)
+                }}
+              >
+                {school}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  // Mobile filter button and active filters display
+  const MobileFilterButton = () => (
+    <div className="md:hidden mt-4 mb-4 flex items-center gap-2">
+      <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+        <SheetTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2 bg-secondary/10 border-primary/20 hover:bg-secondary/20"
+            onClick={handleOpenFilterSheet}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filters
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="bottom" className="rounded-t-xl h-auto max-h-[80vh] pb-8">
+          <div className="pt-6 pb-2">
+            <h3 className="text-lg font-semibold mb-4">Filter Options</h3>
+
+            {/* Time Filter in Sheet */}
+            <div className="mb-6">
+              <h4 className="text-sm font-medium mb-3">Time Range</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={tempTimeFilter === "today" ? "default" : "outline"}
+                  className="w-full"
+                  onClick={() => setTempTimeFilter("today")}
+                >
+                  Today
+                </Button>
+                <Button
+                  variant={tempTimeFilter === "all-time" ? "default" : "outline"}
+                  className="w-full"
+                  onClick={() => setTempTimeFilter("all-time")}
+                >
+                  All Time
+                </Button>
+              </div>
+            </div>
+
+            {/* School Filter in Sheet */}
+            <div className="mb-6">
+              <h4 className="text-sm font-medium mb-3">School</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={tempSchoolFilter === null ? "default" : "outline"}
+                  className="w-full"
+                  onClick={() => setTempSchoolFilter(null)}
+                >
+                  All Schools
+                </Button>
+                {schoolOptions.map((school) => (
+                  <Button
+                    key={school}
+                    variant={tempSchoolFilter === school ? "default" : "outline"}
+                    className="w-full"
+                    onClick={() => setTempSchoolFilter(school)}
+                  >
+                    {school}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Apply Button */}
+            <Button className="w-full mt-4" onClick={applyFilters}>
+              Apply Filters
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Active filters display */}
+      <div className="flex items-center gap-2 overflow-x-auto py-1 flex-1">
+        <div className="flex items-center gap-1 px-2 py-1 bg-primary/10 rounded-full text-xs">
+          <span className="font-medium">{timeFilter === "today" ? "Today" : "All Time"}</span>
+        </div>
+        {schoolFilter && (
+          <div className="flex items-center gap-1 px-2 py-1 bg-primary/10 rounded-full text-xs">
+            <span className="font-medium">{schoolFilter}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 
   return (
     <div className="flex flex-col gap-2 px-2 ">
@@ -275,74 +451,9 @@ export default function Leaderboard() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="mt-4 mb-4 bg-secondary/10 rounded-xl p-3 border border-primary/10 shadow-sm">
-        <div className="flex flex-row items-center flex-wrap gap-4">
-          {/* Filter Label */}
-          <h3 className="text-sm font-medium text-muted-foreground">Filters:</h3>
-
-          {/* Time Filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium whitespace-nowrap">Time Range:</span>
-            <div className="flex rounded-lg overflow-hidden border border-primary/30 shadow-sm">
-              <Button
-                variant={timeFilter === "today" ? "default" : "ghost"}
-                size="sm"
-                className={`rounded-none h-8 px-3 ${timeFilter === "today" ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-foreground"}`}
-                onClick={() => {
-                  setTimeFilter("today")
-                  setPage(1)
-                }}
-              >
-                Today
-              </Button>
-              <Button
-                variant={timeFilter === "all-time" ? "default" : "ghost"}
-                size="sm"
-                className={`rounded-none h-8 px-3 ${timeFilter === "all-time" ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-foreground"}`}
-                onClick={() => {
-                  setTimeFilter("all-time")
-                  setPage(1)
-                }}
-              >
-                All Time
-              </Button>
-            </div>
-          </div>
-
-          {/* School Filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium whitespace-nowrap">School:</span>
-            <div className="flex flex-wrap gap-1">
-              <Button
-                variant={schoolFilter === null ? "default" : "ghost"}
-                size="sm"
-                className={`h-8 px-3 ${schoolFilter === null ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-foreground"}`}
-                onClick={() => {
-                  setSchoolFilter(null)
-                  setPage(1)
-                }}
-              >
-                All
-              </Button>
-              {schoolOptions.map((school) => (
-                <Button
-                  key={school}
-                  variant={schoolFilter === school ? "default" : "ghost"}
-                  size="sm"
-                  className={`h-8 px-3 ${schoolFilter === school ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-foreground"}`}
-                  onClick={() => {
-                    setSchoolFilter(school)
-                    setPage(1)
-                  }}
-                >
-                  {school}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Filters - Desktop and Mobile */}
+      <DesktopFilters />
+      <MobileFilterButton />
 
       {/* Leaderboard List */}
       <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-b from-background to-secondary/10">
@@ -496,3 +607,4 @@ export default function Leaderboard() {
     </div>
   )
 }
+
